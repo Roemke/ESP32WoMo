@@ -1,0 +1,489 @@
+#include <Arduino.h>
+#include <LittleFS.h>
+#include <ESPAsyncWebServer.h>
+#include <ElegantOTA.h>
+#include <esp32_smartdisplay.h>
+
+#include "config.h"
+#include "logging.h"
+#include "wifi.h"
+#include "vedirect.h"
+#include "bme280sensor.h"
+#include "sdcard.h"
+#include "wled.h"
+
+// ----------------------------------------------------------------
+// Webserver + OTA
+// ----------------------------------------------------------------
+AsyncWebServer server(HTTP_PORT);
+
+// ----------------------------------------------------------------
+// LVGL-Tick
+// ----------------------------------------------------------------
+static auto lv_last_tick = millis();
+
+// ----------------------------------------------------------------
+// LVGL UI Handles
+// ----------------------------------------------------------------
+static lv_obj_t *ui_label_volt      = nullptr;
+static lv_obj_t *ui_label_current   = nullptr;
+static lv_obj_t *ui_label_soc       = nullptr;
+static lv_obj_t *ui_label_ttg       = nullptr;
+static lv_obj_t *ui_label_power     = nullptr;
+static lv_obj_t *ui_label_vs        = nullptr;
+static lv_obj_t *ui_label_temp      = nullptr;
+static lv_obj_t *ui_label_hum       = nullptr;
+static lv_obj_t *ui_label_press     = nullptr;
+static lv_obj_t *ui_label_wifi      = nullptr;
+static lv_obj_t *ui_label_innen     = nullptr;
+static lv_obj_t *ui_label_aussen    = nullptr;
+static lv_obj_t *ui_btn_innen       = nullptr;
+static lv_obj_t *ui_btn_aussen      = nullptr;
+
+// ----------------------------------------------------------------
+// Forward-Deklarationen
+// ----------------------------------------------------------------
+static void setupUI();
+static void updateUI();
+static void setupREST();
+static void btn_innen_cb(lv_event_t *e);
+static void btn_aussen_cb(lv_event_t *e);
+
+// ================================================================
+// SETUP
+// ================================================================
+void setup()
+{
+    Serial.begin(115200);
+    logPrintln("=== ESP32 WoMo startet ===");
+
+    // LittleFS mounten
+    if (!LittleFS.begin(true))
+    {
+        logPrintln("FEHLER: LittleFS konnte nicht gemountet werden");
+        while (true) delay(1000);
+    }
+    logPrintln("LittleFS: OK");
+
+    // WiFi
+    wifiSetup();
+
+    // Sensoren
+    vedirectSetup();
+    if (!bme280Setup())
+        logPrintln("BME280: Nicht verfügbar, wird übersprungen");
+
+    // SD-Karte
+    if (!sdSetup())
+        logPrintln("SD: Nicht verfügbar, Logging deaktiviert");
+
+    // WLED
+    wledSetup();
+
+    // OTA + REST-API
+    ElegantOTA.begin(&server);
+    ElegantOTA.onStart([]()   { logPrintln("OTA: Start"); });
+    ElegantOTA.onEnd([](bool ok) {
+        logPrintf("OTA: %s\n", ok ? "Erfolgreich, Neustart..." : "Fehler");
+        if (ok) ESP.restart();
+    });
+    setupREST();
+    server.begin();
+    logPrintln("HTTP-Server gestartet");
+
+    // Display + LVGL
+    smartdisplay_init();
+    smartdisplay_lcd_set_backlight(1.0f);
+    auto display = lv_display_get_default();
+    lv_display_set_rotation(display, LV_DISPLAY_ROTATION_0);
+    setupUI();
+
+    logPrintf("Setup fertig – IP: %s\n", wifiGetIP().c_str());
+}
+
+// ================================================================
+// LOOP
+// ================================================================
+void loop()
+{
+    // LVGL Tick + Handler
+    auto const now = millis();
+    lv_tick_inc(now - lv_last_tick);
+    lv_last_tick = now;
+    lv_timer_handler();
+
+    // Sensoren abfragen
+    vedirectLoop();
+    bme280Loop();
+    sdLoop();
+    wledLoop(); // leer, nur der Vollständigkeit halber
+
+    // UI alle 2 Sekunden aktualisieren
+    static uint32_t lastUiUpdate = 0;
+    if (now - lastUiUpdate >= 2000)
+    {
+        lastUiUpdate = now;
+        updateUI();
+    }
+}
+
+// ================================================================
+// UI aufbauen
+// ================================================================
+static void setupUI()
+{
+    lv_obj_t *scr = lv_screen_active();
+    lv_obj_set_style_bg_color(scr, lv_color_hex(0x1A1A2E), 0);
+    lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
+
+    // ---- Titel --------------------------------------------------
+    lv_obj_t *title = lv_label_create(scr);
+    lv_label_set_text(title, "ESP32 WoMo");
+    lv_obj_set_style_text_color(title, lv_color_hex(0xE0E0FF), 0);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 8);
+
+    // WiFi-Status oben rechts
+    ui_label_wifi = lv_label_create(scr);
+    lv_label_set_text(ui_label_wifi, "WiFi...");
+    lv_obj_set_style_text_color(ui_label_wifi, lv_color_hex(0x888888), 0);
+    lv_obj_set_style_text_font(ui_label_wifi, &lv_font_montserrat_14, 0);
+    lv_obj_align(ui_label_wifi, LV_ALIGN_TOP_RIGHT, -10, 10);
+
+    // ---- Panel: Batterie (links) --------------------------------
+    lv_obj_t *panel_bat = lv_obj_create(scr);
+    lv_obj_set_size(panel_bat, 360, 380);
+    lv_obj_align(panel_bat, LV_ALIGN_LEFT_MID, 10, 20);
+    lv_obj_set_style_bg_color(panel_bat, lv_color_hex(0x16213E), 0);
+    lv_obj_set_style_border_color(panel_bat, lv_color_hex(0x3A3A8E), 0);
+    lv_obj_set_style_border_width(panel_bat, 1, 0);
+    lv_obj_set_style_radius(panel_bat, 10, 0);
+
+    lv_obj_t *lbl_bat_title = lv_label_create(panel_bat);
+    lv_label_set_text(lbl_bat_title, "Batterie (BMV712)");
+    lv_obj_set_style_text_color(lbl_bat_title, lv_color_hex(0xAAAAFF), 0);
+    lv_obj_set_style_text_font(lbl_bat_title, &lv_font_montserrat_16, 0);
+    lv_obj_align(lbl_bat_title, LV_ALIGN_TOP_MID, 0, 5);
+
+    // Batterie-Werte
+    const char *bat_keys[] = {"Spannung:", "Strom:", "Leistung:",
+                               "SoC:", "Restlaufzeit:", "Starter:"};
+    lv_obj_t **bat_vals[]  = {&ui_label_volt, &ui_label_current, &ui_label_power,
+                               &ui_label_soc,  &ui_label_ttg,     &ui_label_vs};
+
+    for (int i = 0; i < 6; i++)
+    {
+        lv_obj_t *k = lv_label_create(panel_bat);
+        lv_label_set_text(k, bat_keys[i]);
+        lv_obj_set_style_text_color(k, lv_color_hex(0x8888BB), 0);
+        lv_obj_set_style_text_font(k, &lv_font_montserrat_14, 0);
+        lv_obj_align(k, LV_ALIGN_TOP_LEFT, 10, 35 + i * 48);
+
+        *bat_vals[i] = lv_label_create(panel_bat);
+        lv_label_set_text(*bat_vals[i], "---");
+        lv_obj_set_style_text_color(*bat_vals[i], lv_color_hex(0xEEEEFF), 0);
+        lv_obj_set_style_text_font(*bat_vals[i], &lv_font_montserrat_16, 0);
+        lv_obj_align(*bat_vals[i], LV_ALIGN_TOP_RIGHT, -10, 33 + i * 48);
+    }
+
+    // ---- Panel: Klima + Lichter (rechts) ------------------------
+    lv_obj_t *panel_right = lv_obj_create(scr);
+    lv_obj_set_size(panel_right, 390, 380);
+    lv_obj_align(panel_right, LV_ALIGN_RIGHT_MID, -10, 20);
+    lv_obj_set_style_bg_color(panel_right, lv_color_hex(0x16213E), 0);
+    lv_obj_set_style_border_color(panel_right, lv_color_hex(0x3A3A8E), 0);
+    lv_obj_set_style_border_width(panel_right, 1, 0);
+    lv_obj_set_style_radius(panel_right, 10, 0);
+
+    // Klima-Titel
+    lv_obj_t *lbl_klima = lv_label_create(panel_right);
+    lv_label_set_text(lbl_klima, "Klima (BME280)");
+    lv_obj_set_style_text_color(lbl_klima, lv_color_hex(0xAAAAFF), 0);
+    lv_obj_set_style_text_font(lbl_klima, &lv_font_montserrat_16, 0);
+    lv_obj_align(lbl_klima, LV_ALIGN_TOP_MID, 0, 5);
+
+    // Klima-Werte
+    const char *klima_keys[] = {"Temperatur:", "Luftfeuchte:", "Luftdruck:"};
+    lv_obj_t **klima_vals[]  = {&ui_label_temp, &ui_label_hum, &ui_label_press};
+
+    for (int i = 0; i < 3; i++)
+    {
+        lv_obj_t *k = lv_label_create(panel_right);
+        lv_label_set_text(k, klima_keys[i]);
+        lv_obj_set_style_text_color(k, lv_color_hex(0x8888BB), 0);
+        lv_obj_set_style_text_font(k, &lv_font_montserrat_14, 0);
+        lv_obj_align(k, LV_ALIGN_TOP_LEFT, 10, 35 + i * 45);
+
+        *klima_vals[i] = lv_label_create(panel_right);
+        lv_label_set_text(*klima_vals[i], "---");
+        lv_obj_set_style_text_color(*klima_vals[i], lv_color_hex(0xEEEEFF), 0);
+        lv_obj_set_style_text_font(*klima_vals[i], &lv_font_montserrat_16, 0);
+        lv_obj_align(*klima_vals[i], LV_ALIGN_TOP_RIGHT, -10, 33 + i * 45);
+    }
+
+    // Trennlinie
+    lv_obj_t *sep = lv_obj_create(panel_right);
+    lv_obj_set_size(sep, 350, 2);
+    lv_obj_set_style_bg_color(sep, lv_color_hex(0x3A3A6E), 0);
+    lv_obj_set_style_border_width(sep, 0, 0);
+    lv_obj_align(sep, LV_ALIGN_TOP_MID, 0, 175);
+
+    // Beleuchtung-Titel
+    lv_obj_t *lbl_light = lv_label_create(panel_right);
+    lv_label_set_text(lbl_light, "Beleuchtung");
+    lv_obj_set_style_text_color(lbl_light, lv_color_hex(0xAAAAFF), 0);
+    lv_obj_set_style_text_font(lbl_light, &lv_font_montserrat_16, 0);
+    lv_obj_align(lbl_light, LV_ALIGN_TOP_MID, 0, 185);
+
+    // Button Innen
+    ui_btn_innen = lv_btn_create(panel_right);
+    lv_obj_set_size(ui_btn_innen, 160, 60);
+    lv_obj_align(ui_btn_innen, LV_ALIGN_TOP_LEFT, 10, 220);
+    lv_obj_set_style_bg_color(ui_btn_innen, lv_color_hex(0x444444), 0);
+    lv_obj_set_style_radius(ui_btn_innen, 8, 0);
+    lv_obj_add_event_cb(ui_btn_innen, btn_innen_cb, LV_EVENT_CLICKED, nullptr);
+
+    ui_label_innen = lv_label_create(ui_btn_innen);
+    lv_label_set_text(ui_label_innen, "Innen\nAUS");
+    lv_obj_set_style_text_font(ui_label_innen, &lv_font_montserrat_14, 0);
+    lv_obj_center(ui_label_innen);
+
+    // Button Außen
+    ui_btn_aussen = lv_btn_create(panel_right);
+    lv_obj_set_size(ui_btn_aussen, 160, 60);
+    lv_obj_align(ui_btn_aussen, LV_ALIGN_TOP_RIGHT, -10, 220);
+    lv_obj_set_style_bg_color(ui_btn_aussen, lv_color_hex(0x444444), 0);
+    lv_obj_set_style_radius(ui_btn_aussen, 8, 0);
+    lv_obj_add_event_cb(ui_btn_aussen, btn_aussen_cb, LV_EVENT_CLICKED, nullptr);
+
+    ui_label_aussen = lv_label_create(ui_btn_aussen);
+    lv_label_set_text(ui_label_aussen, "Aussen\nAUS");
+    lv_obj_set_style_text_font(ui_label_aussen, &lv_font_montserrat_14, 0);
+    lv_obj_center(ui_label_aussen);
+}
+
+// ================================================================
+// UI aktualisieren
+// ================================================================
+static void updateUI()
+{
+    char buf[32];
+
+    // WiFi
+    lv_label_set_text(ui_label_wifi, wifiGetIP().c_str());
+
+    // Batterie
+    if (vedirectIsValid())
+    {
+        snprintf(buf, sizeof(buf), "%.2f V", bmvData.voltage);
+        lv_label_set_text(ui_label_volt, buf);
+
+        snprintf(buf, sizeof(buf), "%.2f A", bmvData.current);
+        lv_label_set_text(ui_label_current, buf);
+
+        snprintf(buf, sizeof(buf), "%.1f W", bmvData.power);
+        lv_label_set_text(ui_label_power, buf);
+
+        snprintf(buf, sizeof(buf), "%.1f %%", bmvData.soc);
+        lv_label_set_text(ui_label_soc, buf);
+
+        if (bmvData.timeToGo < 0)
+            lv_label_set_text(ui_label_ttg, "---");
+        else
+        {
+            snprintf(buf, sizeof(buf), "%ldh %ldm",
+                     bmvData.timeToGo / 60, bmvData.timeToGo % 60);
+            lv_label_set_text(ui_label_ttg, buf);
+        }
+
+        snprintf(buf, sizeof(buf), "%.2f V", bmvData.voltageStarter);
+        lv_label_set_text(ui_label_vs, buf);
+    }
+    else
+    {
+        lv_label_set_text(ui_label_volt,    "---");
+        lv_label_set_text(ui_label_current, "---");
+        lv_label_set_text(ui_label_power,   "---");
+        lv_label_set_text(ui_label_soc,     "---");
+        lv_label_set_text(ui_label_ttg,     "---");
+        lv_label_set_text(ui_label_vs,      "---");
+    }
+
+    // Klima
+    if (bme280IsValid())
+    {
+        snprintf(buf, sizeof(buf), "%.1f C", bme280Data.temperature);
+        lv_label_set_text(ui_label_temp, buf);
+
+        snprintf(buf, sizeof(buf), "%.1f %%", bme280Data.humidity);
+        lv_label_set_text(ui_label_hum, buf);
+
+        snprintf(buf, sizeof(buf), "%.1f hPa", bme280Data.pressure);
+        lv_label_set_text(ui_label_press, buf);
+    }
+    else
+    {
+        lv_label_set_text(ui_label_temp,  "---");
+        lv_label_set_text(ui_label_hum,   "---");
+        lv_label_set_text(ui_label_press, "---");
+    }
+
+    // Beleuchtung – Farbe und Text je nach Zustand
+    bool innen  = (bool)wledInnenState;
+    bool aussen = (bool)wledAussenState;
+
+    lv_obj_set_style_bg_color(ui_btn_innen,
+        innen ? lv_color_hex(0xCC8800) : lv_color_hex(0x444444), 0);
+    lv_label_set_text(ui_label_innen,  innen  ? "Innen\nAN"  : "Innen\nAUS");
+
+    lv_obj_set_style_bg_color(ui_btn_aussen,
+        aussen ? lv_color_hex(0xCC8800) : lv_color_hex(0x444444), 0);
+    lv_label_set_text(ui_label_aussen, aussen ? "Aussen\nAN" : "Aussen\nAUS");
+}
+
+// ================================================================
+// Button-Events
+// ================================================================
+static void btn_innen_cb(lv_event_t *e)
+{
+    bool newState = !(bool)wledInnenState;
+    wledSetState(wledConfig.innen, newState);
+    // Optimistisches Update – Task korrigiert ggf. beim nächsten Poll
+    wledInnenState = newState;
+}
+
+static void btn_aussen_cb(lv_event_t *e)
+{
+    bool newState = !(bool)wledAussenState;
+    wledSetState(wledConfig.aussen, newState);
+    wledAussenState = newState;
+}
+
+// ================================================================
+// REST-API
+// ================================================================
+static void setupREST()
+{
+    // Alle Sensordaten
+    server.on("/api/data", HTTP_GET, [](AsyncWebServerRequest *req)
+    {
+        JsonDocument doc;
+        JsonObject bat = doc["batterie"].to<JsonObject>();
+        bat["valid"]   = vedirectIsValid();
+        if (vedirectIsValid())
+        {
+            bat["V"]   = bmvData.voltage;
+            bat["I"]   = bmvData.current;
+            bat["VS"]  = bmvData.voltageStarter;
+            bat["SOC"] = bmvData.soc;
+            bat["TTG"] = bmvData.timeToGo;
+            bat["P"]   = bmvData.power;
+        }
+
+        JsonObject klima = doc["klima"].to<JsonObject>();
+        klima["valid"] = bme280IsValid();
+        if (bme280IsValid())
+        {
+            klima["T"] = bme280Data.temperature;
+            klima["H"] = bme280Data.humidity;
+            klima["P"] = bme280Data.pressure;
+        }
+
+        doc["wled"]   = serialized(wledToJson());
+        doc["sd"]     = serialized(sdGetStatus());
+        doc["wifi"]   = wifiGetIP();
+
+        String out;
+        serializeJson(doc, out);
+        req->send(200, "application/json", out);
+    });
+
+    // WLED Innen
+    server.on("/api/wled/innen/on",  HTTP_POST, [](AsyncWebServerRequest *req)
+    {
+        wledSetState(wledConfig.innen, true);
+        req->send(200, "application/json", "{\"ok\":true}");
+    });
+    server.on("/api/wled/innen/off", HTTP_POST, [](AsyncWebServerRequest *req)
+    {
+        wledSetState(wledConfig.innen, false);
+        req->send(200, "application/json", "{\"ok\":true}");
+    });
+
+    // WLED Außen
+    server.on("/api/wled/aussen/on",  HTTP_POST, [](AsyncWebServerRequest *req)
+    {
+        wledSetState(wledConfig.aussen, true);
+        req->send(200, "application/json", "{\"ok\":true}");
+    });
+    server.on("/api/wled/aussen/off", HTTP_POST, [](AsyncWebServerRequest *req)
+    {
+        wledSetState(wledConfig.aussen, false);
+        req->send(200, "application/json", "{\"ok\":true}");
+    });
+
+    // WLED Konfiguration setzen
+    server.on("/api/config/wled", HTTP_POST,
+        [](AsyncWebServerRequest *req) {},
+        nullptr,
+        [](AsyncWebServerRequest *req, uint8_t *data, size_t len, size_t, size_t)
+        {
+            JsonDocument doc;
+            if (deserializeJson(doc, data, len))
+            {
+                req->send(400, "application/json", "{\"error\":\"JSON ungueltig\"}");
+                return;
+            }
+            if (doc["innen"]["ip"].is<const char*>())
+                strlcpy(wledConfig.innen.ip,  doc["innen"]["ip"],  sizeof(wledConfig.innen.ip));
+            if (doc["innen"]["port"].is<int>())
+                wledConfig.innen.port = doc["innen"]["port"];
+            if (doc["aussen"]["ip"].is<const char*>())
+                strlcpy(wledConfig.aussen.ip, doc["aussen"]["ip"], sizeof(wledConfig.aussen.ip));
+            if (doc["aussen"]["port"].is<int>())
+                wledConfig.aussen.port = doc["aussen"]["port"];
+            wledSaveConfig();
+            req->send(200, "application/json", "{\"ok\":true}");
+        }
+    );
+
+    // WiFi Credentials setzen
+    server.on("/api/config/wifi", HTTP_POST,
+        [](AsyncWebServerRequest *req) {},
+        nullptr,
+        [](AsyncWebServerRequest *req, uint8_t *data, size_t len, size_t, size_t)
+        {
+            JsonDocument doc;
+            if (deserializeJson(doc, data, len))
+            {
+                req->send(400, "application/json", "{\"error\":\"JSON ungueltig\"}");
+                return;
+            }
+            const char *ssid = doc["ssid"] | "";
+            const char *pass = doc["password"] | "";
+            if (strlen(ssid) > 0)
+            {
+                wifiSetCredentials(ssid, pass);
+                req->send(200, "application/json", "{\"ok\":true,\"reboot\":true}");
+                delay(500);
+                ESP.restart();
+            }
+            else
+                req->send(400, "application/json", "{\"error\":\"SSID fehlt\"}");
+        }
+    );
+
+    // Reboot
+    server.on("/api/reboot", HTTP_POST, [](AsyncWebServerRequest *req)
+    {
+        req->send(200, "application/json", "{\"ok\":true}");
+        delay(500);
+        ESP.restart();
+    });
+
+    // 404
+    server.onNotFound([](AsyncWebServerRequest *req)
+    {
+        req->send(404, "application/json", "{\"error\":\"nicht gefunden\"}");
+    });
+}
