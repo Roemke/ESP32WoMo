@@ -23,16 +23,16 @@ namespace
 // ----------------------------------------------------------------
 bool bme280Setup()
 {
-    Wire.begin(BME280_SDA_PIN, BME280_SCL_PIN);
+    Wire1.begin(BME280_SDA_PIN, BME280_SCL_PIN);
 
-    if (!bme.begin(BME280_I2C_ADDR, &Wire))
+    if (!bme.begin(BME280_I2C_ADDR, &Wire1))
     {
         // Zweite Adresse versuchen (0x76 ↔ 0x77)
         uint8_t altAddr = (BME280_I2C_ADDR == 0x76) ? 0x77 : 0x76;
         logPrintf("BME280: Nicht auf 0x%02X gefunden, versuche 0x%02X\n",
                   BME280_I2C_ADDR, altAddr);
 
-        if (!bme.begin(altAddr, &Wire))
+        if (!bme.begin(altAddr, &Wire1))
         {
             logPrintln("BME280: Sensor nicht gefunden – Pins und Adresse prüfen");
             initialized = false;

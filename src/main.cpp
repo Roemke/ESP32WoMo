@@ -1,232 +1,161 @@
-/**
- * main.cpp
- * LVGL Demo für ESP32-S3 4,3" 800x480 RGB-Display
- * Bibliothek: rzeldent/esp32-smartdisplay 2.1.1 + LVGL 9.x
- */
-
 #include <Arduino.h>
+#include <LittleFS.h>
 #include <esp32_smartdisplay.h>
+#include <ESPAsyncWebServer.h>
+#include <ElegantOTA.h>
+#include "wifi.h"
+#include "wled.h"
+#include "vedirect.h"
+#include "bme280sensor.h"
+#include "sdcard.h"
+#include "ui_sensoren.h"
 
-// ----------------------------------------------------------------
-// Forward-Deklarationen
-// ----------------------------------------------------------------
-static void create_demo_ui(void);
-static void btn_event_cb(lv_event_t *e);
-static void slider_event_cb(lv_event_t *e);
 
-// ----------------------------------------------------------------
-// Globale UI-Handles
-// ----------------------------------------------------------------
-static lv_obj_t *label_counter = nullptr;
-static lv_obj_t *arc           = nullptr;
-static lv_obj_t *label_arc     = nullptr;
-
-// ----------------------------------------------------------------
-// Setup
-// ----------------------------------------------------------------
-void setup()
-{
-    Serial.begin(115200);
-    Serial.println("\n=== ESP32-S3 LVGL Demo ===");
-
-    smartdisplay_init();
-    smartdisplay_lcd_set_backlight(1.0f);
-
-    auto display = lv_display_get_default();
-    lv_display_set_rotation(display, LV_DISPLAY_ROTATION_0);
-
-    create_demo_ui();
-}
-
-// ----------------------------------------------------------------
-// Loop
-// ----------------------------------------------------------------
+AsyncWebServer server(80);
 static auto lv_last_tick = millis();
 
-void loop()
-{
-    auto const now = millis();
-    lv_tick_inc(now - lv_last_tick);
-    lv_last_tick = now;
-    lv_timer_handler();
 
-    static uint32_t last_second = 0;
-    static uint32_t counter     = 0;
+//user interface
+static lv_obj_t *ui_tabview = nullptr;
 
-    if (now - last_second >= 1000)
-    {
-        last_second = now;
-        counter++;
-
-        char buf[32];
-        snprintf(buf, sizeof(buf), "Laufzeit: %lu s", counter);
-        lv_label_set_text(label_counter, buf);
-
-        lv_arc_set_value(arc, (int)(counter % 100));
-        snprintf(buf, sizeof(buf), "%lu%%", counter % 100);
-        lv_label_set_text(label_arc, buf);
-    }
-}
-
-// ----------------------------------------------------------------
-// Demo-UI
-// ----------------------------------------------------------------
-static void create_demo_ui(void)
+static void setupUI()
 {
     lv_obj_t *scr = lv_screen_active();
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x1A1A2E), 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
 
-    // Titel
-    lv_obj_t *title = lv_label_create(scr);
-    lv_label_set_text(title, "ESP32-S3  LVGL Demo");
-    lv_obj_set_style_text_color(title, lv_color_hex(0xE0E0FF), 0);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
-    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 15);
+    // Tabview über den ganzen Screen
+    ui_tabview = lv_tabview_create(scr);
+    lv_tabview_set_tab_bar_position(ui_tabview, LV_DIR_TOP);
+    lv_tabview_set_tab_bar_size(ui_tabview, 40);
+    lv_obj_set_size(ui_tabview, 800, 480);
+    lv_obj_set_pos(ui_tabview, 0, 0);
+    lv_obj_set_style_bg_color(ui_tabview, lv_color_hex(0x1A1A2E), 0);
+    lv_obj_set_style_bg_opa(ui_tabview, LV_OPA_COVER, 0);
 
-    // Laufzeit
-    label_counter = lv_label_create(scr);
-    lv_label_set_text(label_counter, "Laufzeit: 0 s");
-    lv_obj_set_style_text_color(label_counter, lv_color_hex(0xAAFFAA), 0);
-    lv_obj_set_style_text_font(label_counter, &lv_font_montserrat_16, 0);
-    lv_obj_align(label_counter, LV_ALIGN_TOP_MID, 0, 50);
+    // Tab-Leiste dunkler
+    lv_obj_t *tab_bar = lv_tabview_get_tab_bar(ui_tabview);
+    lv_obj_set_style_bg_color(tab_bar, lv_color_hex(0x0D0D1A), 0);
+    lv_obj_set_style_bg_opa(tab_bar, LV_OPA_COVER, 0);
 
-    // ---- Linke Spalte: Buttons ----------------------------------
-    lv_obj_t *panel_left = lv_obj_create(scr);
-    lv_obj_set_size(panel_left, 240, 340);
-    lv_obj_align(panel_left, LV_ALIGN_LEFT_MID, 20, 30);
-    lv_obj_set_style_bg_color(panel_left, lv_color_hex(0x16213E), 0);
-    lv_obj_set_style_border_color(panel_left, lv_color_hex(0x3A3A8E), 0);
-    lv_obj_set_style_border_width(panel_left, 1, 0);
-    lv_obj_set_style_radius(panel_left, 12, 0);
 
-    lv_obj_t *lbl_btn = lv_label_create(panel_left);
-    lv_label_set_text(lbl_btn, "Buttons");
-    lv_obj_set_style_text_color(lbl_btn, lv_color_hex(0xCCCCFF), 0);
-    lv_obj_align(lbl_btn, LV_ALIGN_TOP_MID, 0, 5);
+    // Tabs anlegen
+    lv_obj_t *tab_sensoren   = lv_tabview_add_tab(ui_tabview, "Sensoren");
+    lv_obj_t *tab_licht      = lv_tabview_add_tab(ui_tabview, "Beleuchtung");
+    lv_obj_t *tab_bat_hist   = lv_tabview_add_tab(ui_tabview, "Bat-Verlauf");
+    lv_obj_t *tab_klima_hist = lv_tabview_add_tab(ui_tabview, "Klima-Verlauf");
 
-    lv_obj_t *status_lbl = lv_label_create(panel_left);
-    lv_label_set_text(status_lbl, "---");
-    lv_obj_set_style_text_color(status_lbl, lv_color_hex(0xFFFF88), 0);
-    lv_obj_align(status_lbl, LV_ALIGN_BOTTOM_MID, 0, -10);
-
-    const char    *btn_labels[] = {"Start", "Pause", "Reset"};
-    const uint32_t btn_colors[] = {0x00AA44, 0xCC8800, 0xAA2222};
-
-    for (int i = 0; i < 3; i++)
+    // Platzhalter für History-Tabs
+    for (auto tab : {tab_bat_hist, tab_klima_hist})
     {
-        lv_obj_t *btn = lv_btn_create(panel_left);
-        lv_obj_set_size(btn, 180, 55);
-        lv_obj_align(btn, LV_ALIGN_TOP_MID, 0, 40 + i * 75);
-        lv_obj_set_style_bg_color(btn, lv_color_hex(btn_colors[i]), 0);
-        lv_obj_set_style_bg_color(btn, lv_color_hex(btn_colors[i]), LV_STATE_PRESSED);
-        lv_obj_set_style_radius(btn, 8, 0);
-        lv_obj_set_user_data(btn, (void *)(intptr_t)i);
-        lv_obj_add_event_cb(btn, btn_event_cb, LV_EVENT_CLICKED, status_lbl);
-
-        lv_obj_t *lbl = lv_label_create(btn);
-        lv_label_set_text(lbl, btn_labels[i]);
-        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_16, 0);
+        lv_obj_set_style_bg_color(tab, lv_color_hex(0x1A1A2E), 0);
+        lv_obj_set_style_bg_opa(tab, LV_OPA_COVER, 0);
+        lv_obj_t *lbl = lv_label_create(tab);
+        lv_label_set_text(lbl, "kommt noch...");
+        lv_obj_set_style_text_color(lbl, lv_color_hex(0x888888), 0);
         lv_obj_center(lbl);
     }
 
-    // ---- Mittlere Spalte: Arc + Slider --------------------------
-    lv_obj_t *panel_mid = lv_obj_create(scr);
-    lv_obj_set_size(panel_mid, 240, 340);
-    lv_obj_align(panel_mid, LV_ALIGN_CENTER, 0, 30);
-    lv_obj_set_style_bg_color(panel_mid, lv_color_hex(0x16213E), 0);
-    lv_obj_set_style_border_color(panel_mid, lv_color_hex(0x3A3A8E), 0);
-    lv_obj_set_style_border_width(panel_mid, 1, 0);
-    lv_obj_set_style_radius(panel_mid, 12, 0);
+    // Tab Beleuchtung – Platzhalter
+    lv_obj_set_style_bg_color(tab_licht, lv_color_hex(0x1A1A2E), 0);
+    lv_obj_set_style_bg_opa(tab_licht, LV_OPA_COVER, 0);
+    lv_obj_t *lbl_licht = lv_label_create(tab_licht);
+    lv_label_set_text(lbl_licht, "kommt noch...");
+    lv_obj_set_style_text_color(lbl_licht, lv_color_hex(0x888888), 0);
+    lv_obj_center(lbl_licht);
 
-    lv_obj_t *lbl_arc_title = lv_label_create(panel_mid);
-    lv_label_set_text(lbl_arc_title, "Fortschritt");
-    lv_obj_set_style_text_color(lbl_arc_title, lv_color_hex(0xCCCCFF), 0);
-    lv_obj_align(lbl_arc_title, LV_ALIGN_TOP_MID, 0, 5);
-
-    arc = lv_arc_create(panel_mid);
-    lv_obj_set_size(arc, 150, 150);
-    lv_arc_set_rotation(arc, 135);
-    lv_arc_set_bg_angles(arc, 0, 270);
-    lv_arc_set_value(arc, 0);
-    lv_arc_set_mode(arc, LV_ARC_MODE_NORMAL);
-    lv_obj_remove_flag(arc, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_set_style_arc_color(arc, lv_color_hex(0x2255CC), LV_PART_MAIN);
-    lv_obj_set_style_arc_color(arc, lv_color_hex(0x44AAFF), LV_PART_INDICATOR);
-    lv_obj_set_style_arc_width(arc, 10, LV_PART_MAIN);
-    lv_obj_set_style_arc_width(arc, 10, LV_PART_INDICATOR);
-    lv_obj_set_style_bg_opa(arc, LV_OPA_TRANSP, LV_PART_KNOB);
-    lv_obj_align(arc, LV_ALIGN_TOP_MID, 0, 45);
-
-    label_arc = lv_label_create(panel_mid);
-    lv_label_set_text(label_arc, "0%");
-    lv_obj_set_style_text_color(label_arc, lv_color_hex(0x44CCFF), 0);
-    lv_obj_set_style_text_font(label_arc, &lv_font_montserrat_20, 0);
-    lv_obj_align_to(label_arc, arc, LV_ALIGN_CENTER, 0, 0);
-
-    lv_obj_t *lbl_slider = lv_label_create(panel_mid);
-    lv_label_set_text(lbl_slider, "Helligkeit");
-    lv_obj_set_style_text_color(lbl_slider, lv_color_hex(0xCCCCCC), 0);
-    lv_obj_align(lbl_slider, LV_ALIGN_BOTTOM_MID, 0, -70);
-
-    lv_obj_t *slider = lv_slider_create(panel_mid);
-    lv_obj_set_size(slider, 180, 20);
-    lv_slider_set_value(slider, 100, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(slider, lv_color_hex(0x2255CC), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(slider, lv_color_hex(0x44AAFF), LV_PART_INDICATOR);
-    lv_obj_set_style_bg_color(slider, lv_color_hex(0xFFFFFF), LV_PART_KNOB);
-    lv_obj_align(slider, LV_ALIGN_BOTTOM_MID, 0, -35);
-    lv_obj_add_event_cb(slider, slider_event_cb, LV_EVENT_VALUE_CHANGED, nullptr);
-
-    // ---- Rechte Spalte: System-Info -----------------------------
-    lv_obj_t *panel_right = lv_obj_create(scr);
-    lv_obj_set_size(panel_right, 240, 340);
-    lv_obj_align(panel_right, LV_ALIGN_RIGHT_MID, -20, 30);
-    lv_obj_set_style_bg_color(panel_right, lv_color_hex(0x16213E), 0);
-    lv_obj_set_style_border_color(panel_right, lv_color_hex(0x3A3A8E), 0);
-    lv_obj_set_style_border_width(panel_right, 1, 0);
-    lv_obj_set_style_radius(panel_right, 12, 0);
-
-    lv_obj_t *lbl_info = lv_label_create(panel_right);
-    lv_label_set_text(lbl_info, "System-Info");
-    lv_obj_set_style_text_color(lbl_info, lv_color_hex(0xCCCCFF), 0);
-    lv_obj_align(lbl_info, LV_ALIGN_TOP_MID, 0, 5);
-
-    const char *info_keys[]   = {"MCU:",     "Takt:",    "Flash:",  "PSRAM:",    "Display:",    "Touch:"};
-    const char *info_values[] = {"ESP32-S3", "240 MHz",  "16 MB",   "8 MB OPI",  "800x480 RGB", "GT911 Cap"};
-
-    for (int i = 0; i < 6; i++)
+    // Durch alle Buttons im Tab-Bar iterieren, Farben etwas anpassen
+    uint32_t tab_count = lv_tabview_get_tab_count(ui_tabview);
+    for (uint32_t i = 0; i < tab_count; i++)
     {
-        lv_obj_t *k = lv_label_create(panel_right);
-        lv_label_set_text(k, info_keys[i]);
-        lv_obj_set_style_text_color(k, lv_color_hex(0x8888BB), 0);
-        lv_obj_set_style_text_font(k, &lv_font_montserrat_14, 0);
-        lv_obj_align(k, LV_ALIGN_TOP_LEFT, 10, 40 + i * 44);
-
-        lv_obj_t *v = lv_label_create(panel_right);
-        lv_label_set_text(v, info_values[i]);
-        lv_obj_set_style_text_color(v, lv_color_hex(0xEEEEFF), 0);
-        lv_obj_set_style_text_font(v, &lv_font_montserrat_14, 0);
-        lv_obj_align(v, LV_ALIGN_TOP_RIGHT, -10, 40 + i * 44);
+        lv_obj_t *btn = lv_obj_get_child(tab_bar, i);
+        // Inaktiv
+        lv_obj_set_style_text_color(btn, lv_color_hex(0x8888BB), LV_STATE_DEFAULT);
+        // Aktiv
+        lv_obj_set_style_text_color(btn, lv_color_hex(0xFFFFFF), LV_STATE_CHECKED);
+        lv_obj_set_style_bg_color(btn, lv_color_hex(0x2233AA), LV_STATE_CHECKED);
+        lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_STATE_CHECKED);
     }
+
+    // Tab Sensoren – ui_sensoren.cpp
+    uiSensorenSetup(tab_sensoren);
+
+    Serial.println("setupUI OK");
 }
 
-// ----------------------------------------------------------------
-// Events
-// ----------------------------------------------------------------
-static void btn_event_cb(lv_event_t *e)
-{
-    lv_obj_t *status_lbl = (lv_obj_t *)lv_event_get_user_data(e);
-    lv_obj_t *btn        = (lv_obj_t *)lv_event_get_target(e);
-    int idx = (int)(intptr_t)lv_obj_get_user_data(btn);
-    const char *msgs[] = {"Gestartet!", "Pausiert.", "Zurueckgesetzt."};
-    if (idx >= 0 && idx < 3)
-        lv_label_set_text(status_lbl, msgs[idx]);
+//normal setup
+
+void setup() {
+    Serial.begin(115200);
+    
+    if (!LittleFS.begin(true))
+        Serial.println("LittleFS FEHLER");
+    else
+        Serial.println("LittleFS OK");
+
+    wifiSetup();
+    Serial.println("WiFi OK");
+
+    uiSensorenSetIP(wifiGetIP());
+
+    wledSetup();
+    Serial.println("WLED OK");
+
+    if (!bme280Setup())
+        Serial.println("BME280 nicht gefunden");
+    else
+        Serial.println("BME280 OK");
+
+
+    vedirectSetup();
+    Serial.println("VEDirect OK");
+
+   
+
+    ElegantOTA.begin(&server);
+    server.begin();
+    Serial.println("Server OK");
+
+    sdSetup();
+    Serial.println("SD OK");
+
+
+    
+    /* display mal raus 
+    smartdisplay_init();
+
+    
+    smartdisplay_lcd_set_backlight(1.0f);
+
+    auto display = lv_display_get_default();
+    lv_display_set_rotation(display, LV_DISPLAY_ROTATION_0);
+    
+    setupUI(); */
+
+    Serial.println("Setup ist durch");
 }
 
-static void slider_event_cb(lv_event_t *e)
-{
-    lv_obj_t *slider = (lv_obj_t *)lv_event_get_target(e);
-    int32_t val = lv_slider_get_value(slider);
-    smartdisplay_lcd_set_backlight((float)val / 100.0f);
+void loop() {
+    auto const now = millis();
+    /*
+    lv_tick_inc(now - lv_last_tick);
+    lv_last_tick = now;
+    lv_timer_handler();
+    */
+    // Sensoren abfragen
+    vedirectLoop();
+    bme280Loop();
+    sdLoop();
+    wledLoop();
+
+    // UI alle 2 Sekunden aktualisieren
+    /*
+    static uint32_t lastUpdate = 0;
+    if (now - lastUpdate >= 2000)
+    {
+        lastUpdate = now;
+        uiSensorenUpdate();
+        uiSensorenSetIP(wifiGetIP());
+    }
+    */
 }

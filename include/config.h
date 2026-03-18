@@ -18,9 +18,12 @@
 // ---- BME280 (I²C) ------------------------------------------
 // Der ESP32-S3 hat I²C auf verschiedenen Pins möglich.
 // GT911 Touch nutzt bereits I2C_NUM_0 auf GPIO 19/20 (laut Board-JSON)
-// → BME280 auf I2C_NUM_1 oder andere Pins legen
-#define BME280_SDA_PIN      8       // freier I²C Bus
-#define BME280_SCL_PIN      9
+// → BME280 auf I2C_NUM_1 oder andere Pins legen, nein, andere adresse, also auf 19,20
+// aber bme erst nach dem display initialisieren, nein muss auf anderen Controlle, Wire1
+// mal sehen, ob dann 19 und 20 als pins gehen 
+
+#define BME280_SDA_PIN      19       // freier I²C Bus
+#define BME280_SCL_PIN      20
 #define BME280_I2C_ADDR     0x76    // 0x76 oder 0x77 je nach Modul
 
 // ---- SD-Karte (SPI) ----------------------------------------
