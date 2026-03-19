@@ -5,8 +5,8 @@
 #include <ElegantOTA.h>
 #include "wifi.h"
 #include "wled.h"
-#include "vedirect.h"
-#include "bme280sensor.h"
+//#include "vedirect.h"
+//#include "bme280sensor.h"
 #include "sdcard.h"
 #include "ui_sensoren.h"
 
@@ -100,7 +100,7 @@ void setup() {
 
     wledSetup();
     Serial.println("WLED OK");
-
+/* war mal hier gedacht, ausgelagert
     if (!bme280Setup())
         Serial.println("BME280 nicht gefunden");
     else
@@ -109,7 +109,7 @@ void setup() {
 
     vedirectSetup();
     Serial.println("VEDirect OK");
-
+*/
    
 
     ElegantOTA.begin(&server);
@@ -121,7 +121,6 @@ void setup() {
 
 
     
-    /* display mal raus 
     smartdisplay_init();
 
     
@@ -130,7 +129,7 @@ void setup() {
     auto display = lv_display_get_default();
     lv_display_set_rotation(display, LV_DISPLAY_ROTATION_0);
     
-    setupUI(); */
+    setupUI();
 
     Serial.println("Setup ist durch");
 }
@@ -142,9 +141,9 @@ void loop() {
     lv_last_tick = now;
     lv_timer_handler();
     */
-    // Sensoren abfragen
-    vedirectLoop();
-    bme280Loop();
+    // Sensoren abfragen - ausgelagert, kommt später als rest-Anfrage
+    //vedirectLoop();
+    //bme280Loop();
     sdLoop();
     wledLoop();
 

@@ -3,6 +3,8 @@
 #include <Adafruit_BME280.h>
 #include <ArduinoJson.h>
 
+#include "sensorconfig.h"
+
 // ----------------------------------------------------------------
 // Globale Daten
 // ----------------------------------------------------------------
@@ -23,16 +25,15 @@ namespace
 // ----------------------------------------------------------------
 bool bme280Setup()
 {
-    Wire1.begin(BME280_SDA_PIN, BME280_SCL_PIN);
-
-    if (!bme.begin(BME280_I2C_ADDR, &Wire1))
+    Wire.begin(sensorConfig.bme_sda, sensorConfig.bme_scl);
+    Wire.setTimeout(1000); 
+    if (!bme.begin(sensorConfig.bme_addr, &Wire))
     {
-        // Zweite Adresse versuchen (0x76 ↔ 0x77)
-        uint8_t altAddr = (BME280_I2C_ADDR == 0x76) ? 0x77 : 0x76;
+        uint8_t altAddr = (sensorConfig.bme_addr == 0x76) ? 0x77 : 0x76;        
         logPrintf("BME280: Nicht auf 0x%02X gefunden, versuche 0x%02X\n",
-                  BME280_I2C_ADDR, altAddr);
+                  sensorConfig.bme_addr, altAddr);
 
-        if (!bme.begin(altAddr, &Wire1))
+        if (!bme.begin(altAddr, &Wire))
         {
             logPrintln("BME280: Sensor nicht gefunden – Pins und Adresse prüfen");
             initialized = false;
@@ -42,7 +43,7 @@ bool bme280Setup()
     }
     else
     {
-        logPrintf("BME280: Sensor gefunden auf 0x%02X\n", BME280_I2C_ADDR);
+        logPrintf("BME280: Sensor gefunden auf 0x%02X\n",sensorConfig.bme_addr);
     }
 
     // Empfohlene Einstellungen für Innenraum-Monitoring
@@ -58,7 +59,7 @@ bool bme280Setup()
 
     initialized = true;
     logPrintf("BME280: Initialisiert, SDA=GPIO%d, SCL=GPIO%d, Intervall=%dms\n",
-              BME280_SDA_PIN, BME280_SCL_PIN, BME280_INTERVAL_MS);
+          sensorConfig.bme_sda, sensorConfig.bme_scl,sensorConfig.bme_interval_ms ); 
     return true;
 }
 
@@ -68,7 +69,7 @@ bool bme280Setup()
 void bme280Loop()
 {
     if (!initialized) return;
-    if (millis() - lastPollMs < BME280_INTERVAL_MS) return;
+    if (millis() - lastPollMs < (uint32_t)sensorConfig.bme_interval_ms) return;
     lastPollMs = millis();
 
     float t = bme.readTemperature();
@@ -97,7 +98,7 @@ void bme280Loop()
 bool bme280IsValid()
 {
     if (!bme280Data.valid) return false;
-    return (millis() - bme280Data.lastUpdateMs) < (BME280_INTERVAL_MS * 3);
+    return (millis() - bme280Data.lastUpdateMs) < (uint32_t)(sensorConfig.bme_interval_ms * 3);
 }
 
 String bme280ToJson()

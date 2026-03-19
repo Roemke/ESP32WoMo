@@ -1,3 +1,8 @@
+
+Fazit: es gibt immer nur stress, da das Board agressiv i2c blockiert, der
+bme hat nur quatsch geliefert nachdem er erkannt wurde, daher eigenes
+projekt sensor_esp mit eigenem esp32
+
 Wire ist die Arduino-Abstraktion für I²C. Der ESP32-S3 hat zwei Hardware-I²C-Controller:
 
     Wire = I2C_NUM_0 – der erste Controller
@@ -42,4 +47,6 @@ danach seine eigenen Ressourcen unabhängig davon bekommt. Andersherum würde de
 Ressourcen belegen die I²C danach nicht mehr bekommt. GitHub
 Das erklärt warum Wire1.begin() vor smartdisplay_init() funktioniert, aber nicht danach – es 
 ist eine Ressourcen-Reihenfolge im ESP-IDF, nicht eine logische Abhängigkeit.
+
+
 

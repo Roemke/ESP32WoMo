@@ -2,8 +2,8 @@
 #include <SPI.h>
 #include <SD.h>
 #include <ArduinoJson.h>
-#include "vedirect.h"
-#include "bme280sensor.h"
+//#include "vedirect.h"
+//#include "bme280sensor.h"
 
 // ----------------------------------------------------------------
 // Interner State
@@ -65,6 +65,7 @@ namespace
 
         // Zeile zusammenbauen
         char line[128];
+        /*
         snprintf(line, sizeof(line),
                  "%lu,%.3f,%.3f,%.3f,%.1f,%ld,%.1f,%.1f,%.1f,%.1f",
                  (unsigned long)millis(),
@@ -78,10 +79,10 @@ namespace
                  bme280Data.valid ? bme280Data.humidity    : -1.0f,
                  bme280Data.valid ? bme280Data.pressure    : -1.0f);
 
-        f.println(line);
+        f.println(line);*/
         f.close();
 
-        logPrintf("SD: Zeile geschrieben in %s\n", filename.c_str());
+        logPrintf("SD: Zeile geschrieben in %s - noe noch nicht\n", filename.c_str());
     }
 }
 

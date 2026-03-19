@@ -1,4 +1,6 @@
 #include "vedirect.h"
+#include "sensorconfig.h"
+
 #include <ArduinoJson.h>
 
 // ----------------------------------------------------------------
@@ -168,11 +170,10 @@ namespace
 // ----------------------------------------------------------------
 void vedirectSetup()
 {
-    // TX_PIN = -1 → nur RX angeschlossen
-    VEDIRECT_UART.begin(VEDIRECT_BAUD, SERIAL_8N1,
-                        VEDIRECT_RX_PIN, VEDIRECT_TX_PIN);
+    VEDIRECT_UART.begin(sensorConfig.vedirect_baud, SERIAL_8N1,
+                        sensorConfig.vedirect_rx, VEDIRECT_TX_PIN);
     logPrintf("VE.Direct: UART gestartet, RX=GPIO%d, Baud=%d\n",
-              VEDIRECT_RX_PIN, VEDIRECT_BAUD);
+              sensorConfig.vedirect_rx, sensorConfig.vedirect_baud);
 }
 
 void vedirectLoop()

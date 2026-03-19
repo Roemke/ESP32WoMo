@@ -13,6 +13,9 @@ Wohnmobil-Steuerung auf Basis eines **Sunton ESP32-S3 4,3" 800×480 IPS Display-
 | Beleuchtung | 2× WLED-ESP (innen + außen) |
 | Speicher | SD-Karte (SPI, onboard Slot) |
 
+Neuüberlegung wegen Stress mit i2c - sensoren auf eigenen esp auslagern
+sensor_esp
+
 ## Projektstruktur
 
 ```

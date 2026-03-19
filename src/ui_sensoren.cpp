@@ -118,6 +118,7 @@ void uiSensorenUpdate()
     char buf[32];
 
     // ---- Batterie -----------------------------------------------
+    /*
     if (vedirectIsValid())
     {
         snprintf(buf, sizeof(buf), "%.2f V", bmvData.voltage);
@@ -143,8 +144,8 @@ void uiSensorenUpdate()
 
         snprintf(buf, sizeof(buf), "%.2f V", bmvData.voltageStarter);
         lv_label_set_text(s_vs, buf);
-    }
-    else
+    } erstmal raus*/
+    //else
     {
         lv_label_set_text(s_volt,    "---");
         lv_label_set_text(s_current, "---");
@@ -155,6 +156,7 @@ void uiSensorenUpdate()
     }
 
     // ---- Klima --------------------------------------------------
+    /* später über rest 
     if (bme280IsValid())
     {
         snprintf(buf, sizeof(buf), "%.1f C", bme280Data.temperature);
@@ -166,7 +168,7 @@ void uiSensorenUpdate()
         snprintf(buf, sizeof(buf), "%.1f hPa", bme280Data.pressure);
         lv_label_set_text(s_press, buf);
     }
-    else
+    else */
     {
         lv_label_set_text(s_temp,  "---");
         lv_label_set_text(s_hum,   "---");

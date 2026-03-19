@@ -1,8 +1,8 @@
 #pragma once
 #include <Arduino.h>
 #include <lvgl.h>
-#include "vedirect.h"
-#include "bme280sensor.h"
+//#include "vedirect.h"
+//#include "bme280sensor.h"
 
 // ----------------------------------------------------------------
 // ui_sensoren – Tab 1: Batterie (BMV712) + Klima (BME280/SCD41)
