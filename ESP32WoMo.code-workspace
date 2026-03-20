@@ -1,15 +1,11 @@
 {
-	"folders": [
-		{
-			"path": "."
-		},
-		{
-			"path": "sensor_esp"
-		},
-		{
-			"name": "sensor_esp",
-			"path": "../../../../Data/Infos/ArduinoETC/ESP32WoMo/sensor_esp"
-		}
-	],
-	"settings": {}
+    "folders": [
+        {
+            "path": "."
+        },
+        {
+            "path": "sensor_esp"
+        }
+    ],
+    "settings": {}
 }

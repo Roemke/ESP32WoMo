@@ -10,7 +10,7 @@ String   wifiMacSta;
 // ----------------------------------------------------------------
 // Credentials in LittleFS speichern
 // ----------------------------------------------------------------
-static void saveWifiData()
+void wifiSaveData()
 {
     File f = LittleFS.open(WIFI_DATA_PATH, "w");
     if (!f)
@@ -21,9 +21,14 @@ static void saveWifiData()
     JsonDocument doc;
     doc["ssid"]     = wifiData.ssid;
     doc["password"] = wifiData.password;
+    doc["use_static_ip"] = wifiData.use_static_ip;
+    doc["static_ip"]     = wifiData.static_ip;
+    doc["subnet"]        = wifiData.subnet;
     doc["magic"]    = wifiData.magic;
+    
     serializeJson(doc, f);
     f.close();
+
     logPrintln("WiFi: Credentials gespeichert");
 }
 
@@ -52,6 +57,10 @@ static bool loadWifiData()
     strncpy(wifiData.password, doc["password"] | "", sizeof(wifiData.password) - 1);
     wifiData.magic = doc["magic"] | 0;
 
+    wifiData.use_static_ip = doc["use_static_ip"] | false;
+    strncpy(wifiData.static_ip, doc["static_ip"] | WIFI_STATIC_IP_DEFAULT, sizeof(wifiData.static_ip) - 1);
+    strncpy(wifiData.subnet,    doc["subnet"]     | WIFI_SUBNET_DEFAULT,    sizeof(wifiData.subnet)    - 1);
+    
     if (wifiData.magic != 0x43)
     {
         logPrintln("WiFi: Credentials ungültig");
@@ -72,7 +81,7 @@ void wifiSetCredentials(const char *ssid, const char *password)
     wifiData.ssid[sizeof(wifiData.ssid)         - 1] = 0;
     wifiData.password[sizeof(wifiData.password) - 1] = 0;
     wifiData.magic = 0x43;
-    saveWifiData();
+    wifiSaveData();
 }
 
 // ----------------------------------------------------------------
@@ -85,6 +94,13 @@ static bool connectSTA()
     WiFi.begin(wifiData.ssid, wifiData.password);
     WiFi.setSleep(false);
     WiFi.setAutoReconnect(true);
+    if (wifiData.use_static_ip)
+    {
+        IPAddress ip, sn;
+        ip.fromString(wifiData.static_ip);
+        sn.fromString(wifiData.subnet);
+        WiFi.config(ip, IPAddress(0,0,0,0), sn);
+    }
 
     unsigned long start = millis();
     while (WiFi.status() != WL_CONNECTED &&

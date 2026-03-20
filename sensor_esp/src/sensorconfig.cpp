@@ -3,9 +3,11 @@
 
 // Defaults aus config.h
 SensorConfig sensorConfig = {
+    SENSOR_CONFIG_VERSION,
     BME280_SDA_PIN_DEFAULT,
     BME280_SCL_PIN_DEFAULT,
     BME280_I2C_ADDR_DEFAULT,
+    BME280_INTERVAL_MS_DEFAULT,  
     VEDIRECT_RX_PIN_DEFAULT,
     VEDIRECT_BAUD
 };
@@ -20,12 +22,19 @@ bool sensorConfigLoad()
     }
     JsonDocument doc;
     DeserializationError err = deserializeJson(doc, f);
-    f.close();
+    f.close();    
     if (err)
     {
         logPrintln("Config: Fehler beim Lesen, nutze Defaults");
         return false;
     }
+    uint8_t ver = doc["version"] | 0;
+    if (ver != SENSOR_CONFIG_VERSION)
+    {
+        logPrintln("Config: Version veraltet, schreibe Defaults");
+        return sensorConfigSave();
+    }
+
     sensorConfig.bme_sda      = doc["bme_sda"]      | BME280_SDA_PIN_DEFAULT;
     sensorConfig.bme_scl      = doc["bme_scl"]      | BME280_SCL_PIN_DEFAULT;
     sensorConfig.bme_addr     = doc["bme_addr"]      | BME280_I2C_ADDR_DEFAULT;
@@ -56,6 +65,7 @@ bool sensorConfigSave()
 String sensorConfigToJson()
 {
     JsonDocument doc;
+    doc["version"] = SENSOR_CONFIG_VERSION;
     doc["bme_sda"]       = sensorConfig.bme_sda;
     doc["bme_scl"]       = sensorConfig.bme_scl;
     doc["bme_addr"]      = sensorConfig.bme_addr;

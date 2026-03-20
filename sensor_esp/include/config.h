@@ -25,12 +25,17 @@
 #define WIFI_AP_PASSWORD         ""
 #define WIFI_CONNECT_TIMEOUT_MS  10000
 
+#define WIFI_USE_STATIC_IP_DEFAULT  false
+#define WIFI_STATIC_IP_DEFAULT      "192.168.1.100"
+#define WIFI_SUBNET_DEFAULT         "255.255.255.0"
+
 // ---- HTTP Server -------------------------------------------
 #define HTTP_PORT                80
 
 // ---- LittleFS Pfade ----------------------------------------
 #define CONFIG_PATH              "/config.json"
 #define WIFI_DATA_PATH           "/wifiData.json"
+#define SENSOR_CONFIG_VERSION 2 //ändern bei strukturänderung
 
 // ---- Logging -----------------------------------------------
 #define LOG_BUFFER_SIZE          50
