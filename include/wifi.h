@@ -9,10 +9,14 @@
 // Gespeicherte WiFi-Credentials
 struct WifiData
 {
-    char ssid[32];
-    char password[64];
-    uint8_t magic; // 0x43 = valide
+    char    ssid[32];
+    char    password[64];
+    bool    use_static_ip;
+    char    static_ip[16];
+    char    subnet[16];
+    uint8_t magic;
 };
+
 extern WifiData wifiData;
 
 extern String wifiMode;

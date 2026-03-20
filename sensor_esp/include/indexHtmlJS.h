@@ -110,7 +110,7 @@ console.log(JSON.stringify(d.bme));
 
     // BME280
     if (d.bme && d.bme.valid) {
-      setBadge('valTemp',  d.bme.T + ' C',   tempClass(d.bme.T));
+      setBadge('valTemp',  d.bme.T + ' °C',   tempClass(d.bme.T));
       setBadge('valHum',   d.bme.H + ' %%',  humClass(d.bme.H));
       setBadge('valPress', d.bme.P + ' hPa', 'neutral');
     }
@@ -343,7 +343,7 @@ window.addEventListener('load', () => {
   <ul>
     <li>Tab <strong>Sensoren</strong>: Aktuelle Messwerte von BME280 und Victron BMV712</li>
     <li>Tab <strong>Konfiguration</strong>: GPIO-Pins, Messintervall, WLAN, IP-Einstellungen</li>
-    <li>Werte werden automatisch alle 5 Sekunden aktualisiert</li>
+    <li>Werte werden automatisch alle n (denke 10 :-))Sekunden aktualisiert</li>
     <li>OTA-Update unter <a href="/update" style="color:#44aaff">/update</a></li>
   </ul>
 

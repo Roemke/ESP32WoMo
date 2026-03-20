@@ -5,10 +5,14 @@
 #include <ElegantOTA.h>
 #include "wifi.h"
 #include "wled.h"
-//#include "vedirect.h"
+//#include "vedirect.h" //raus macht ein anderer esp
 //#include "bme280sensor.h"
 #include "sdcard.h"
 #include "ui_sensoren.h"
+#include "indexHtmlJS.h"
+#include "config.h"  // für Defaults
+#include "appconfig.h" //für konfigurierbare geschichten 
+#include "sensorpoll.h"
 
 
 AsyncWebServer server(80);
@@ -83,6 +87,111 @@ static void setupUI()
     Serial.println("setupUI OK");
 }
 
+//fuer die indexHTMLJS
+String processor(const String& var)
+{
+    if (var == "WIFI_MAC_AP")     return wifiMacAp;
+    if (var == "WIFI_MAC_STA")    return wifiMacSta;
+    if (var == "WIFI_MODE")       return wifiMode;
+    if (var == "WIFI_USE_STATIC") return wifiData.use_static_ip ? "checked" : "";
+    if (var == "WIFI_STATIC_IP")  return String(wifiData.static_ip);
+    if (var == "WIFI_SUBNET")     return String(wifiData.subnet);
+    if (var == "SENSOR_ESP_IP")   return String(appConfig.sensor_esp_ip);
+    if (var == "WLED_INNEN_IP")   return String(appConfig.wled_innen_ip);
+    if (var == "WLED_AUSSEN_IP")  return String(appConfig.wled_aussen_ip);
+    return "";
+}
+
+//routen der api handlen
+
+
+String buildDataJson()
+{
+    JsonDocument doc;
+
+    JsonObject bme = doc["bme"].to<JsonObject>();
+    bme["valid"] = sensorData.bme_valid;
+    if (sensorData.bme_valid)
+    {
+        bme["T"] = sensorData.temperature;
+        bme["H"] = sensorData.humidity;
+        bme["P"] = sensorData.pressure;
+    }
+
+    JsonObject ve = doc["vedirect"].to<JsonObject>();
+    ve["valid"] = sensorData.vedirect_valid;
+    if (sensorData.vedirect_valid)
+    {
+        ve["V"]   = sensorData.voltage;
+        ve["I"]   = sensorData.current;
+        ve["P"]   = sensorData.power;
+        ve["SOC"] = sensorData.soc;
+        ve["TTG"] = sensorData.ttg;
+        ve["VS"]  = sensorData.voltage_starter;
+    }
+
+    JsonObject co2 = doc["co2"].to<JsonObject>();
+    co2["valid"] = sensorData.co2_valid;
+    if (sensorData.co2_valid)
+        co2["ppm"] = sensorData.co2_ppm;
+
+    doc["wifi"] = wifiGetIP();
+
+    String out;
+    serializeJson(doc, out);
+    return out;
+}
+
+void handleAppConfigPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, size_t, size_t)
+{
+    JsonDocument doc;
+    if (deserializeJson(doc, data, len))
+    {
+        req->send(400, "application/json", "{\"error\":\"JSON ungueltig\"}");
+        return;
+    }
+    if (doc["sensor_esp_ip"].is<const char*>())
+        strlcpy(appConfig.sensor_esp_ip,  doc["sensor_esp_ip"],  sizeof(appConfig.sensor_esp_ip));
+    if (doc["wled_innen_ip"].is<const char*>())
+        strlcpy(appConfig.wled_innen_ip,  doc["wled_innen_ip"],  sizeof(appConfig.wled_innen_ip));
+    if (doc["wled_aussen_ip"].is<const char*>())
+        strlcpy(appConfig.wled_aussen_ip, doc["wled_aussen_ip"], sizeof(appConfig.wled_aussen_ip));
+    appConfigSave();
+    req->send(200, "application/json", "{\"ok\":true}");
+    // kein Neustart nötig – IPs werden beim nächsten Poll aktiv
+}
+
+void handleWifiPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, size_t, size_t)
+{
+    JsonDocument doc;
+    if (deserializeJson(doc, data, len))
+    {
+        req->send(400, "application/json", "{\"error\":\"JSON ungueltig\"}");
+        return;
+    }
+    const char *ssid = doc["ssid"] | "";
+    if (strlen(ssid) == 0)
+    {
+        req->send(400, "application/json", "{\"error\":\"SSID fehlt\"}");
+        return;
+    }
+    wifiData.use_static_ip = doc["use_static_ip"] | false;
+    strlcpy(wifiData.static_ip, doc["static_ip"] | WIFI_STATIC_IP_DEFAULT, sizeof(wifiData.static_ip));
+    strlcpy(wifiData.subnet,    doc["subnet"]    | WIFI_SUBNET_DEFAULT,    sizeof(wifiData.subnet));
+    wifiSetCredentials(ssid, doc["password"] | "");
+    req->send(200, "application/json", "{\"ok\":true}");
+    delay(500);
+    ESP.restart();
+}
+
+void handleReboot(AsyncWebServerRequest *req)
+{
+    req->send(200, "application/json", "{\"ok\":true}");
+    delay(500);
+    ESP.restart();
+}
+
+
 //normal setup
 
 void setup() {
@@ -92,13 +201,17 @@ void setup() {
         Serial.println("LittleFS FEHLER");
     else
         Serial.println("LittleFS OK");
-
+    
+    
+    appConfigLoad();
+    Serial.println("AppConfig OK");
+        
     wifiSetup();
     Serial.println("WiFi OK");
 
     uiSensorenSetIP(wifiGetIP());
 
-    wledSetup();
+    //wledSetup();
     Serial.println("WLED OK");
 /* war mal hier gedacht, ausgelagert
     if (!bme280Setup())
@@ -113,6 +226,33 @@ void setup() {
    
 
     ElegantOTA.begin(&server);
+    //routen für die api
+
+    server.on("/api/data", HTTP_GET, [](AsyncWebServerRequest *req)
+    { req->send(200, "application/json", buildDataJson()); });
+
+
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *req)
+        { req->send(200, "text/html", index_html, processor); });
+
+
+    // spezifischere Route zuerst
+    server.on("/api/config/wifi", HTTP_POST,
+        [](AsyncWebServerRequest *req) {}, nullptr, handleWifiPost);
+
+    server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest *req)
+        { req->send(200, "application/json", appConfigToJson()); });
+
+    server.on("/api/config", HTTP_POST,
+        [](AsyncWebServerRequest *req) {}, nullptr, handleAppConfigPost);
+
+    server.on("/api/reboot", HTTP_POST, handleReboot);
+
+    server.onNotFound([](AsyncWebServerRequest *req)
+        { req->send(404, "application/json", "{\"error\":\"nicht gefunden\"}"); });
+
+
+
     server.begin();
     Serial.println("Server OK");
 
@@ -141,11 +281,10 @@ void loop() {
     lv_last_tick = now;
     lv_timer_handler();
     */
-    // Sensoren abfragen - ausgelagert, kommt später als rest-Anfrage
-    //vedirectLoop();
-    //bme280Loop();
+   
     sdLoop();
-    wledLoop();
+    sensorPollLoop();
+    //wledLoop();
 
     // UI alle 2 Sekunden aktualisieren
     /*
