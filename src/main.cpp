@@ -3,89 +3,27 @@
 #include <esp32_smartdisplay.h>
 #include <ESPAsyncWebServer.h>
 #include <ElegantOTA.h>
+#include <esp_task_wdt.h>
+
 #include "wifi.h"
 #include "wled.h"
 //#include "vedirect.h" //raus macht ein anderer esp
 //#include "bme280sensor.h"
 #include "sdcard.h"
+#include "ui_main.h"
 #include "ui_sensoren.h"
 #include "indexHtmlJS.h"
 #include "config.h"  // für Defaults
 #include "appconfig.h" //für konfigurierbare geschichten 
 #include "sensorpoll.h"
+#include "ui_history.h"
+#include <SD.h> //für dateioperationen per webserver, hat logisch nichts mit sdcard.h zu tun.
 
 
 AsyncWebServer server(80);
 static auto lv_last_tick = millis();
 
 
-//user interface
-static lv_obj_t *ui_tabview = nullptr;
-
-static void setupUI()
-{
-    lv_obj_t *scr = lv_screen_active();
-    lv_obj_set_style_bg_color(scr, lv_color_hex(0x1A1A2E), 0);
-    lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
-
-    // Tabview über den ganzen Screen
-    ui_tabview = lv_tabview_create(scr);
-    lv_tabview_set_tab_bar_position(ui_tabview, LV_DIR_TOP);
-    lv_tabview_set_tab_bar_size(ui_tabview, 40);
-    lv_obj_set_size(ui_tabview, 800, 480);
-    lv_obj_set_pos(ui_tabview, 0, 0);
-    lv_obj_set_style_bg_color(ui_tabview, lv_color_hex(0x1A1A2E), 0);
-    lv_obj_set_style_bg_opa(ui_tabview, LV_OPA_COVER, 0);
-
-    // Tab-Leiste dunkler
-    lv_obj_t *tab_bar = lv_tabview_get_tab_bar(ui_tabview);
-    lv_obj_set_style_bg_color(tab_bar, lv_color_hex(0x0D0D1A), 0);
-    lv_obj_set_style_bg_opa(tab_bar, LV_OPA_COVER, 0);
-
-
-    // Tabs anlegen
-    lv_obj_t *tab_sensoren   = lv_tabview_add_tab(ui_tabview, "Sensoren");
-    lv_obj_t *tab_licht      = lv_tabview_add_tab(ui_tabview, "Beleuchtung");
-    lv_obj_t *tab_bat_hist   = lv_tabview_add_tab(ui_tabview, "Bat-Verlauf");
-    lv_obj_t *tab_klima_hist = lv_tabview_add_tab(ui_tabview, "Klima-Verlauf");
-
-    // Platzhalter für History-Tabs
-    for (auto tab : {tab_bat_hist, tab_klima_hist})
-    {
-        lv_obj_set_style_bg_color(tab, lv_color_hex(0x1A1A2E), 0);
-        lv_obj_set_style_bg_opa(tab, LV_OPA_COVER, 0);
-        lv_obj_t *lbl = lv_label_create(tab);
-        lv_label_set_text(lbl, "kommt noch...");
-        lv_obj_set_style_text_color(lbl, lv_color_hex(0x888888), 0);
-        lv_obj_center(lbl);
-    }
-
-    // Tab Beleuchtung – Platzhalter
-    lv_obj_set_style_bg_color(tab_licht, lv_color_hex(0x1A1A2E), 0);
-    lv_obj_set_style_bg_opa(tab_licht, LV_OPA_COVER, 0);
-    lv_obj_t *lbl_licht = lv_label_create(tab_licht);
-    lv_label_set_text(lbl_licht, "kommt noch...");
-    lv_obj_set_style_text_color(lbl_licht, lv_color_hex(0x888888), 0);
-    lv_obj_center(lbl_licht);
-
-    // Durch alle Buttons im Tab-Bar iterieren, Farben etwas anpassen
-    uint32_t tab_count = lv_tabview_get_tab_count(ui_tabview);
-    for (uint32_t i = 0; i < tab_count; i++)
-    {
-        lv_obj_t *btn = lv_obj_get_child(tab_bar, i);
-        // Inaktiv
-        lv_obj_set_style_text_color(btn, lv_color_hex(0x8888BB), LV_STATE_DEFAULT);
-        // Aktiv
-        lv_obj_set_style_text_color(btn, lv_color_hex(0xFFFFFF), LV_STATE_CHECKED);
-        lv_obj_set_style_bg_color(btn, lv_color_hex(0x2233AA), LV_STATE_CHECKED);
-        lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_STATE_CHECKED);
-    }
-
-    // Tab Sensoren – ui_sensoren.cpp
-    uiSensorenSetup(tab_sensoren);
-
-    Serial.println("setupUI OK");
-}
 
 //fuer die indexHTMLJS
 String processor(const String& var)
@@ -191,6 +129,84 @@ void handleReboot(AsyncWebServerRequest *req)
     ESP.restart();
 }
 
+//anzeigen verzeichnisinhalt
+static void handleSDList(AsyncWebServerRequest *req)
+{
+    String dir = "/";
+    if (req->hasParam("dir"))
+        dir = req->getParam("dir")->value();
+
+    File root = SD.open(dir);
+    if (!root || !root.isDirectory())
+    {
+        req->send(404, "application/json", "{\"error\":\"Verzeichnis nicht gefunden\"}");
+        return;
+    }
+
+    JsonDocument doc;
+    JsonArray files = doc["files"].to<JsonArray>();
+    File f = root.openNextFile();
+    while (f)
+    {
+        JsonObject entry = files.add<JsonObject>();
+        entry["name"] = String(f.name());
+        entry["size"] = f.size();
+        entry["dir"] = f.isDirectory();
+        f = root.openNextFile();
+    }
+    doc["dir"] = dir;
+    String out;
+    serializeJson(doc, out);
+    req->send(200, "application/json", out);    
+}
+
+
+//download eines Files
+static void handleSDDownload(AsyncWebServerRequest *req)
+{
+    if (!req->hasParam("file"))
+    {
+        req->send(400, "application/json", "{\"error\":\"file fehlt\"}");
+        return;
+    }
+    String path = req->getParam("file")->value();
+    if (!SD.exists(path))
+    {
+        req->send(404, "application/json", "{\"error\":\"nicht gefunden\"}");
+        return;
+    }
+    req->send(SD, path, "text/csv", true); // true = als Download
+};
+
+// SD Upload
+static void handleSDUpload(AsyncWebServerRequest* req, String filename, size_t index, uint8_t *data, size_t len, bool final)
+{
+    String path = "/";
+    if (req->hasParam("dir"))
+        path = req->getParam("dir")->value();
+    if (!path.endsWith("/")) path += "/";
+    path += filename;
+
+    static File uploadFile;
+    if (index == 0)
+    {
+        logPrintf("SD Upload: %s\n", path.c_str());
+        // Verzeichnis anlegen falls nötig
+        String dir = path.substring(0, path.lastIndexOf('/'));
+        if (dir.length() > 0 && !SD.exists(dir))
+            SD.mkdir(dir);
+        uploadFile = SD.open(path, FILE_WRITE);
+    }
+    if (uploadFile)
+        uploadFile.write(data, len);
+    if (final && uploadFile)
+    {
+        uploadFile.close();
+        logPrintf("SD Upload: %s fertig (%u bytes)\n", path.c_str(), index + len);
+    }
+}
+
+
 
 //normal setup
 
@@ -208,28 +224,65 @@ void setup() {
         
     wifiSetup();
     Serial.println("WiFi OK");
-
-    uiSensorenSetIP(wifiGetIP());
+    // Auf NTP warten – max 5 Sekunden
+    uint32_t ntpStart = millis();
+    while (!wifiTimeValid() && millis() - ntpStart < 5000)
+        delay(100);
+    Serial.printf("NTP: %s\n", wifiTimeValid() ? "sync" : "kein sync");
 
     //wledSetup();
-    Serial.println("WLED OK");
-/* war mal hier gedacht, ausgelagert
-    if (!bme280Setup())
-        Serial.println("BME280 nicht gefunden");
-    else
-        Serial.println("BME280 OK");
-
-
-    vedirectSetup();
-    Serial.println("VEDirect OK");
-*/
-   
+    Serial.println("WLED noch zu tun ");   
 
     ElegantOTA.begin(&server);
     //routen für die api
 
+    //history darstellen 
+    
+    server.on("/api/history", HTTP_GET, [](AsyncWebServerRequest *req)
+    {
+        String from   = req->hasParam("from")   ? req->getParam("from")->value()   : "";
+        String to     = req->hasParam("to")     ? req->getParam("to")->value()     : "";
+        int    points = req->hasParam("points") ? req->getParam("points")->value().toInt() : 400;
+
+        if (from.isEmpty() || to.isEmpty())
+        {
+            req->send(400, "application/json", "{\"error\":\"from/to fehlt\"}");
+            return;
+        }
+
+        const char *buf = sdGetHistoryBuffer(from, to, points);
+        size_t total    = strlen(buf);
+
+        AsyncWebServerResponse *response = req->beginChunkedResponse("application/json",
+            [buf, total](uint8_t *chunk, size_t maxLen, size_t index) -> size_t
+            {
+                if (index >= total) return 0; // fertig
+                size_t len = min(maxLen, total - index);
+                memcpy(chunk, buf + index, len);
+                return len;
+            });
+        req->send(response);
+    });
+    // SD Download
+    server.on("/api/sd/download", HTTP_GET, [](AsyncWebServerRequest *req)
+        { handleSDDownload(req); });
+
+        // SD Verzeichnis auflisten
+    server.on("/api/sd/list", HTTP_GET, [](AsyncWebServerRequest *req)
+        {   handleSDList(req); });
+
+    server.on("/api/sd/upload", HTTP_POST,     
+    [](AsyncWebServerRequest *req)
+    {
+        req->send(200, "application/json", "{\"ok\":true}");
+    },
+    [](AsyncWebServerRequest *req, String filename, size_t index, uint8_t *data, size_t len, bool final)
+    {
+        handleSDUpload(req, filename, index, data, len, final);
+    });
+
     server.on("/api/data", HTTP_GET, [](AsyncWebServerRequest *req)
-    { req->send(200, "application/json", buildDataJson()); });
+        { req->send(200, "application/json", buildDataJson()); });
 
 
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *req)
@@ -252,6 +305,7 @@ void setup() {
         { req->send(404, "application/json", "{\"error\":\"nicht gefunden\"}"); });
 
 
+    esp_task_wdt_init(30, true); //etwas mehr zeit 
 
     server.begin();
     Serial.println("Server OK");
@@ -269,31 +323,36 @@ void setup() {
     auto display = lv_display_get_default();
     lv_display_set_rotation(display, LV_DISPLAY_ROTATION_0);
     
-    setupUI();
-
-    Serial.println("Setup ist durch");
+    uiMainSetup();
+    
+    logPrintf("PSRAM: %lu bytes\n", (unsigned long)ESP.getPsramSize());
+    logPrintln("Setup ist durch");    
 }
 
 void loop() {
     auto const now = millis();
-    /*
+   
+    static uint32_t lastHeapLog = 0;
+    if (millis() - lastHeapLog > 5000) // alle 30 Sekunden
+    {
+        lastHeapLog = millis();
+        logPrintf("Heap: %lu frei, min: %lu | PSRAM: %lu frei\n",
+            (unsigned long)ESP.getFreeHeap(),
+            (unsigned long)ESP.getMinFreeHeap(),
+            (unsigned long)ESP.getFreePsram());
+    }
+    
     lv_tick_inc(now - lv_last_tick);
     lv_last_tick = now;
     lv_timer_handler();
-    */
+    
    
     sdLoop();
     sensorPollLoop();
+    uiHistoryLoop();
     //wledLoop();
 
-    // UI alle 2 Sekunden aktualisieren
-    /*
-    static uint32_t lastUpdate = 0;
-    if (now - lastUpdate >= 2000)
-    {
-        lastUpdate = now;
-        uiSensorenUpdate();
-        uiSensorenSetIP(wifiGetIP());
-    }
-    */
+    // UI alle 2 Sekunden aktualisieren            
+    uiSensorenUpdate();        
+    
 }

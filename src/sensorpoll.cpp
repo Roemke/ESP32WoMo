@@ -65,5 +65,5 @@ void sensorPollLoop()
     if (sensorData.co2_valid)
         sensorData.co2_ppm = doc["co2"]["ppm"] | 0;
 
-    logPrintln("SensorPoll: OK");
+    //logPrintln("SensorPoll: OK");
 }

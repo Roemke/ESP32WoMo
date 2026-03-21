@@ -85,6 +85,26 @@ void wifiSetCredentials(const char *ssid, const char *password)
 }
 
 // ----------------------------------------------------------------
+// Zeitfunktionen
+// ----------------------------------------------------------------
+bool wifiTimeValid()
+{
+    struct tm t;
+    return getLocalTime(&t, 0);
+}
+
+String wifiGetTime()
+{
+    struct tm t;
+    static const char *WOCHENTAGE[] = {
+        "Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"
+    };
+    if (!getLocalTime(&t, 0)) return "-----, --.--.---- --:--:--";
+    char buf[32];
+    strftime(buf, sizeof(buf), "%d.%m.%Y %H:%M:%S", &t);
+    return String(WOCHENTAGE[t.tm_wday]) + ", " + String(buf);
+}
+// ----------------------------------------------------------------
 // STA-Modus: Verbindung herstellen
 // ----------------------------------------------------------------
 static bool connectSTA()
@@ -115,6 +135,11 @@ static bool connectSTA()
     {
         logPrintf("WiFi: Verbunden, IP=%s\n", WiFi.localIP().toString().c_str());
         wifiMode = "STA, IP " + WiFi.localIP().toString();
+        // NTP synchronisieren
+        configTime(0, 0, "pool.ntp.org", "de.pool.ntp.org");
+        setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
+        tzset();
+        logPrintln("WiFi: NTP gestartet");
         return true;
     }
 

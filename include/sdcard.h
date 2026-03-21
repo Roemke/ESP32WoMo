@@ -17,3 +17,7 @@ bool    sdSetup();      // false wenn keine SD-Karte gefunden
 void    sdLoop();       // in loop() aufrufen, prüft Intervall selbst
 bool    sdIsReady();    // true wenn SD-Karte initialisiert
 String  sdGetStatus();  // freier Speicher etc. als JSON
+
+//history kram 
+void        sdGetHistoryStream(const String &from, const String &to, int points, Print &output);
+const char* sdGetHistoryBuffer(const String &from, const String &to, int points);

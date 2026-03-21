@@ -1,4 +1,5 @@
 #include "ui_sensoren.h"
+#include "sensorpoll.h"
 
 // ----------------------------------------------------------------
 // Private UI-Handles – nur in dieser Datei sichtbar
@@ -42,7 +43,7 @@ static void makeTitle(lv_obj_t *parent, const char *text)
     lv_obj_t *t = lv_label_create(parent);
     lv_label_set_text(t, text);
     lv_obj_set_style_text_color(t, lv_color_hex(0xAAAAFF), 0);
-    lv_obj_set_style_text_font(t, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_font(t, &lv_font_montserrat_18, 0);
     lv_obj_align(t, LV_ALIGN_TOP_MID, 0, 8);
 }
 
@@ -54,13 +55,13 @@ static lv_obj_t *makeRow(lv_obj_t *parent, const char *key, int y)
     lv_obj_t *k = lv_label_create(parent);
     lv_label_set_text(k, key);
     lv_obj_set_style_text_color(k, lv_color_hex(0x8888BB), 0);
-    lv_obj_set_style_text_font(k, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(k, &lv_font_montserrat_18, 0);
     lv_obj_align(k, LV_ALIGN_TOP_LEFT, 12, y);
 
     lv_obj_t *v = lv_label_create(parent);
     lv_label_set_text(v, "---");
     lv_obj_set_style_text_color(v, lv_color_hex(0xEEEEFF), 0);
-    lv_obj_set_style_text_font(v, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_font(v, &lv_font_montserrat_18, 0);
     lv_obj_align(v, LV_ALIGN_TOP_RIGHT, -12, y - 2);
     return v;
 }
@@ -80,7 +81,7 @@ void uiSensorenSetup(lv_obj_t *tab)
     // Links: Batterie 388×432, Rechts: Klima 388×432, Abstand 8px
 
     // ---- Batterie-Panel (links) ----------------------------------
-    lv_obj_t *p_bat = makePanel(tab, 0, 0, 388, 432);
+    lv_obj_t *p_bat = makePanel(tab, 0, 0, 388, 392);
     makeTitle(p_bat, "Batterie (BMV712)");
 
     const int row_start = 34;
@@ -94,19 +95,19 @@ void uiSensorenSetup(lv_obj_t *tab)
     s_vs      = makeRow(p_bat, "Starter:",   row_start + row_step * 5);
 
     // ---- Klima-Panel (rechts) ------------------------------------
-    lv_obj_t *p_klima = makePanel(tab, 404, 0, 388, 432);
+    lv_obj_t *p_klima = makePanel(tab, 404, 0, 388, 392);
     makeTitle(p_klima, "Klima");
 
     s_temp  = makeRow(p_klima, "Temperatur:", row_start);
     s_hum   = makeRow(p_klima, "Feuchte:",    row_start + row_step);
     s_press = makeRow(p_klima, "Luftdruck:",  row_start + row_step * 2);
-    s_co2   = makeRow(p_klima, "CO\u2082:",   row_start + row_step * 3);
+    s_co2   = makeRow(p_klima, "CO2:",        row_start + row_step * 3);
 
     // IP-Adresse unten rechts
     s_ip = lv_label_create(p_klima);
     lv_label_set_text(s_ip, "---");
     lv_obj_set_style_text_color(s_ip, lv_color_hex(0x666688), 0);
-    lv_obj_set_style_text_font(s_ip, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(s_ip, &lv_font_montserrat_16, 0);
     lv_obj_align(s_ip, LV_ALIGN_BOTTOM_RIGHT, -10, -8);
 }
 
@@ -115,37 +116,39 @@ void uiSensorenSetup(lv_obj_t *tab)
 // ================================================================
 void uiSensorenUpdate()
 {
+    static uint32_t lastUpdate = 0;
+    if (millis() - lastUpdate < 2000) return;
+    lastUpdate = millis();
     char buf[32];
 
     // ---- Batterie -----------------------------------------------
-    /*
-    if (vedirectIsValid())
+    if (sensorData.vedirect_valid)
     {
-        snprintf(buf, sizeof(buf), "%.2f V", bmvData.voltage);
+        snprintf(buf, sizeof(buf), "%.2f V", sensorData.voltage);
         lv_label_set_text(s_volt, buf);
 
-        snprintf(buf, sizeof(buf), "%.2f A", bmvData.current);
+        snprintf(buf, sizeof(buf), "%.2f A", sensorData.current);
         lv_label_set_text(s_current, buf);
 
-        snprintf(buf, sizeof(buf), "%.1f W", bmvData.power);
+        snprintf(buf, sizeof(buf), "%.1f W", sensorData.power);
         lv_label_set_text(s_power, buf);
 
-        snprintf(buf, sizeof(buf), "%.1f %%", bmvData.soc);
+        snprintf(buf, sizeof(buf), "%.1f %%", sensorData.soc);
         lv_label_set_text(s_soc, buf);
 
-        if (bmvData.timeToGo < 0)
+        if (sensorData.ttg < 0)
             lv_label_set_text(s_ttg, "---");
         else
         {
-            snprintf(buf, sizeof(buf), "%ldh %ldm",
-                     bmvData.timeToGo / 60, bmvData.timeToGo % 60);
+            snprintf(buf, sizeof(buf), "%dh %dm",
+                     sensorData.ttg / 60, sensorData.ttg % 60);
             lv_label_set_text(s_ttg, buf);
         }
 
-        snprintf(buf, sizeof(buf), "%.2f V", bmvData.voltageStarter);
+        snprintf(buf, sizeof(buf), "%.2f V", sensorData.voltage_starter);
         lv_label_set_text(s_vs, buf);
-    } erstmal raus*/
-    //else
+    }
+    else
     {
         lv_label_set_text(s_volt,    "---");
         lv_label_set_text(s_current, "---");
@@ -156,27 +159,32 @@ void uiSensorenUpdate()
     }
 
     // ---- Klima --------------------------------------------------
-    /* später über rest 
-    if (bme280IsValid())
+    if (sensorData.bme_valid)
     {
-        snprintf(buf, sizeof(buf), "%.1f C", bme280Data.temperature);
+        snprintf(buf, sizeof(buf), "%.1f C", sensorData.temperature);
         lv_label_set_text(s_temp, buf);
 
-        snprintf(buf, sizeof(buf), "%.1f %%", bme280Data.humidity);
+        snprintf(buf, sizeof(buf), "%.1f %%", sensorData.humidity);
         lv_label_set_text(s_hum, buf);
 
-        snprintf(buf, sizeof(buf), "%.1f hPa", bme280Data.pressure);
+        snprintf(buf, sizeof(buf), "%.1f hPa", sensorData.pressure);
         lv_label_set_text(s_press, buf);
     }
-    else */
+    else
     {
         lv_label_set_text(s_temp,  "---");
         lv_label_set_text(s_hum,   "---");
         lv_label_set_text(s_press, "---");
     }
 
-    // CO2 – SCD41 kommt später, erstmal Platzhalter
-    lv_label_set_text(s_co2, "---");
+    // ---- CO2 ----------------------------------------------------
+    if (sensorData.co2_valid)
+    {
+        snprintf(buf, sizeof(buf), "%d ppm", sensorData.co2_ppm);
+        lv_label_set_text(s_co2, buf);
+    }
+    else
+        lv_label_set_text(s_co2, "---");
 }
 
 // ----------------------------------------------------------------

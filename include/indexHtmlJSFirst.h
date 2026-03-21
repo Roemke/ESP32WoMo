@@ -8,8 +8,7 @@
 //   %SENSOR_ESP_IP%
 //   %WLED_INNEN_IP%    %WLED_AUSSEN_IP%
 //
-// Aktuelle Sensordaten: Polling alle 5s von /api/data
-// Verlaufsdaten:        /api/history?from=...&to=...&points=N
+// Sensordaten kommen per Polling alle 5s von /api/data
 // ----------------------------------------------------------------
 
 const char index_html[] PROGMEM = R"rawliteral(
@@ -23,7 +22,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 <style>
   body {
     font-family: Arial, sans-serif;
-    font-size: 1.4em;
+    font-size: 1.25em;
     margin: 0; padding: 10px;
     background: #1a1a2e;
     color: #eeeeff;
@@ -34,8 +33,8 @@ const char index_html[] PROGMEM = R"rawliteral(
   .tab { overflow: hidden; background: #0d0d1a; border-bottom: 2px solid #3a3a8e; }
   .tab button {
     background: inherit; border: none; outline: none;
-    cursor: pointer; padding: 12px 16px;
-    color: #8888bb; font-size: 0.9em;
+    cursor: pointer; padding: 12px 20px;
+    color: #8888bb; font-size: 1em;
   }
   .tab button:hover  { background: #1a1a3e; color: #ffffff; }
   .tab button.active { background: #16213e; color: #ffffff; }
@@ -68,11 +67,10 @@ const char index_html[] PROGMEM = R"rawliteral(
   .form-row { display: flex; align-items: center; margin-bottom: 10px; gap: 10px; }
   .form-row label { min-width: 220px; flex-shrink: 0; color: #8888bb; }
   .form-row input[type=text],
-  .form-row input[type=password],
-  .form-row input[type=datetime-local] {
+  .form-row input[type=password] {
     background: #0d0d1a; color: #eeeeff;
     border: 1px solid #3a3a8e; padding: 5px 10px;
-    border-radius: 4px; font-size: 0.9em;
+    border-radius: 4px; font-size: 0.9em; width: 220px;
   }
   .form-row input[type=checkbox] { width: 20px; height: 20px; cursor: pointer; }
 
@@ -83,7 +81,6 @@ const char index_html[] PROGMEM = R"rawliteral(
     font-size: 0.9em; margin: 6px 4px 6px 0;
   }
   .btn:hover { background: #44aaff; }
-  .btn.active { background: #44aaff; }
 
   /* ---- Info ---- */
   .infoField {
@@ -93,23 +90,11 @@ const char index_html[] PROGMEM = R"rawliteral(
   }
   .invisible { display: none; }
 
-  /* ---- History ---- */
-  .history-controls {
-    display: flex; gap: 10px; align-items: center;
-    flex-wrap: wrap; margin-bottom: 16px;
-    background: #16213e; border: 1px solid #3a3a8e;
-    border-radius: 8px; padding: 10px;
-  }
-  .history-controls label { color: #8888bb; font-size: 0.9em; }
+  /* ---- History Charts ---- */
   .chart-wrap {
     background: #16213e; border: 1px solid #3a3a8e;
     border-radius: 8px; padding: 12px; margin-bottom: 16px;
-    position: relative; height: 300px;
-  }
-  .chart-loading {
-    position: absolute; top: 50%%; left: 50%%;
-    transform: translate(-50%%, -50%%);
-    color: #666688; font-size: 0.9em;
+    height: 220px;
   }
 
   /* ---- Log ---- */
@@ -131,38 +116,68 @@ const char index_html[] PROGMEM = R"rawliteral(
 
 <script>
 // ================================================================
-// Hilfsfunktionen
+// History-Ringpuffer im Browser (max. 60 Einträge)
 // ================================================================
-function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
-function getVal(id)      { return document.getElementById(id).value; }
-function setVal(id, v)   { document.getElementById(id).value = v; }
+const HISTORY_MAX = 60;
+const hist = {
+  labels: [],
+  temp: [], hum: [], press: [],
+  voltage: [], soc: [], current: []
+};
 
-function setBadge(id, text, cls) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.textContent = text;
-  el.className = 'badge ' + (cls || 'neutral');
+function historyPush(d) {
+  hist.labels.push(new Date().toLocaleTimeString());
+  hist.temp.push(d.bme    && d.bme.valid     ? d.bme.T         : null);
+  hist.hum.push(d.bme     && d.bme.valid     ? d.bme.H         : null);
+  hist.press.push(d.bme   && d.bme.valid     ? d.bme.P         : null);
+  hist.voltage.push(d.vedirect && d.vedirect.valid ? d.vedirect.V   : null);
+  hist.soc.push(d.vedirect     && d.vedirect.valid ? d.vedirect.SOC : null);
+  hist.current.push(d.vedirect && d.vedirect.valid ? d.vedirect.I   : null);
+  if (hist.labels.length > HISTORY_MAX)
+    Object.keys(hist).forEach(k => hist[k].shift());
+  if (chartKlima)    chartKlima.update();
+  if (chartBatterie) chartBatterie.update();
 }
 
-function ttgFormat(min) {
-  if (min < 0) return '---';
-  return Math.floor(min / 60) + 'h ' + (min %% 60) + 'm';
-}
+// ================================================================
+// Charts
+// ================================================================
+let chartKlima    = null;
+let chartBatterie = null;
 
-function tempClass(t) { if (t < 5 || t > 35) return 'err'; if (t < 18 || t > 28) return 'warn'; return 'ok'; }
-function humClass(h)  { return (h < 30 || h > 70) ? 'warn' : 'ok'; }
-function socClass(s)  { if (s < 20) return 'err'; if (s < 50) return 'warn'; return 'ok'; }
-function co2Class(p)  { if (p > 2000) return 'err'; if (p > 1000) return 'warn'; return 'ok'; }
+function initCharts() {
+  const gridColor = '#2a2a4e';
+  const opts = {
+    animation: false, responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#aaaaff' } } },
+    scales: {
+      x: { ticks: { color: '#666688', maxTicksLimit: 10 }, grid: { color: gridColor } },
+      y: { ticks: { color: '#8888bb' },                    grid: { color: gridColor } }
+    }
+  };
 
-function toggleIP(cb) {
-  document.getElementById('ip-fields').style.display = cb.checked ? 'block' : 'none';
-}
+  chartKlima = new Chart(document.getElementById('chartKlima'), {
+    type: 'line', options: opts,
+    data: {
+      labels: hist.labels,
+      datasets: [
+        { label: 'Temperatur (°C)', data: hist.temp,  borderColor: '#ff7043', tension: 0.3, pointRadius: 2 },
+        { label: 'Feuchte (%%)',     data: hist.hum,   borderColor: '#42a5f5', tension: 0.3, pointRadius: 2 }
+      ]
+    }
+  });
 
-function openTab(evt, name) {
-  document.querySelectorAll('.tabcontent').forEach(t => t.style.display = 'none');
-  document.querySelectorAll('.tab button').forEach(b => b.classList.remove('active'));
-  document.getElementById(name).style.display = 'block';
-  evt.currentTarget.classList.add('active');
+  chartBatterie = new Chart(document.getElementById('chartBatterie'), {
+    type: 'line', options: opts,
+    data: {
+      labels: hist.labels,
+      datasets: [
+        { label: 'Spannung (V)', data: hist.voltage, borderColor: '#66bb6a', tension: 0.3, pointRadius: 2 },
+        { label: 'SoC (%%)',      data: hist.soc,     borderColor: '#ffa726', tension: 0.3, pointRadius: 2 },
+        { label: 'Strom (A)',    data: hist.current, borderColor: '#ab47bc', tension: 0.3, pointRadius: 2 }
+      ]
+    }
+  });
 }
 
 // ================================================================
@@ -197,6 +212,8 @@ async function poll() {
       setBadge('valVS',  d.vedirect.VS  + ' V',  'neutral');
     }
 
+    historyPush(d);
+
     // Log
     if (d.log && d.log.length > 0) {
       const c = document.getElementById('logContainer');
@@ -213,118 +230,7 @@ async function poll() {
 }
 
 // ================================================================
-// History – Datepicker initialisieren (letzten 24h als Default)
-// ================================================================
-function initDatepickers() {
-  const now  = new Date();
-  const ago  = new Date(now - 24 * 3600 * 1000);
-
-  function toLocal(d) {
-    // datetime-local braucht Format YYYY-MM-DDTHH:MM
-    return d.getFullYear() + '-' +
-      String(d.getMonth()+1).padStart(2,'0') + '-' +
-      String(d.getDate()).padStart(2,'0') + 'T' +
-      String(d.getHours()).padStart(2,'0') + ':' +
-      String(d.getMinutes()).padStart(2,'0');
-  }
-
-  ['klima','bat'].forEach(ch => {
-    setVal('from_' + ch, toLocal(ago));
-    setVal('to_'   + ch, toLocal(now));
-  });
-}
-
-// ================================================================
-// History laden und Charts zeichnen
-// ================================================================
-let chartKlima    = null;
-let chartBatterie = null;
-
-const CHART_DEFAULTS = {
-  animation: false,
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: { legend: { labels: { color: '#aaaaff', font: { size: 13 } } } },
-  scales: {
-    x: { ticks: { color: '#666688', maxTicksLimit: 10, font: { size: 11 } },
-         grid: { color: '#2a2a4e' } },
-    y: { ticks: { color: '#8888bb', font: { size: 11 } },
-         grid: { color: '#2a2a4e' } }
-  }
-};
-
-async function loadHistory(channel) {
-  const fromId  = 'from_' + channel;
-  const toId    = 'to_'   + channel;
-  const from    = getVal(fromId);
-  const to      = getVal(toId);
-  const canvas  = document.getElementById('chart_' + channel);
-  const loading = document.getElementById('loading_' + channel);
-
-  if (!from || !to) { alert('Bitte Start und Ende wählen'); return; }
-
-  const points = canvas.offsetWidth || 600;
-  if (loading) loading.style.display = 'block';
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000); // 25s
-
-  try {
-    const r = await fetch(
-      `/api/history?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&points=${points}`,
-      { signal: controller.signal }
-    );
-    clearTimeout(timeout);
-    const d = await r.json();
-
-    if (loading) loading.style.display = 'none';
-
-    if (d.error) { alert('Fehler: ' + d.error); return; }
-
-    if (channel === 'klima') {
-      if (chartKlima) chartKlima.destroy();
-      chartKlima = new Chart(canvas, {
-        type: 'line',
-        options: CHART_DEFAULTS,
-        data: {
-          labels: d.labels,
-          datasets: [
-            { label: 'Temperatur (°C)', data: d.T,   borderColor: '#ff7043', tension: 0.3, pointRadius: 0 },
-            { label: 'Feuchte (%%)',     data: d.H,   borderColor: '#42a5f5', tension: 0.3, pointRadius: 0 },
-            { label: 'Luftdruck (hPa)', data: d.P,   borderColor: '#ab47bc', tension: 0.3, pointRadius: 0, hidden: true },
-            { label: 'CO2 (ppm)',       data: d.CO2, borderColor: '#66bb6a', tension: 0.3, pointRadius: 0, hidden: true }
-          ]
-        }
-      });
-    } else {
-      if (chartBatterie) chartBatterie.destroy();
-      chartBatterie = new Chart(canvas, {
-        type: 'line',
-        options: CHART_DEFAULTS,
-        data: {
-          labels: d.labels,
-          datasets: [
-            { label: 'Spannung (V)', data: d.V,   borderColor: '#66bb6a', tension: 0.3, pointRadius: 0 },
-            { label: 'SoC (%%)',      data: d.SOC, borderColor: '#ffa726', tension: 0.3, pointRadius: 0 },
-            { label: 'Strom (A)',    data: d.I,   borderColor: '#ab47bc', tension: 0.3, pointRadius: 0 },
-            { label: 'Leistung (W)', data: d.PW,  borderColor: '#ef5350', tension: 0.3, pointRadius: 0, hidden: true },
-            { label: 'Starter (V)', data: d.VS, borderColor: '#26c6da', tension: 0.3, pointRadius: 0, hidden: true } 
-          ]
-        }
-      });
-    }
-
-    // Info anzeigen
-    setText('info_' + channel, `${d.total} Messwerte → ${d.labels.length} Punkte`);
-
-  } catch(e) {
-    if (loading) loading.style.display = 'none';
-    alert('Verbindungsfehler');
-  }
-}
-
-// ================================================================
-// IPs speichern
+// IPs speichern (kein Neustart nötig)
 // ================================================================
 async function saveIPs() {
   const body = {
@@ -362,17 +268,87 @@ async function saveWifi() {
 }
 
 // ================================================================
-// Start
+// Hilfsfunktionen
 // ================================================================
+function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+function getVal(id)      { return document.getElementById(id).value; }
+
+function setBadge(id, text, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'badge ' + (cls || 'neutral');
+}
+
+function ttgFormat(min) {
+  if (min < 0) return '---';
+  return Math.floor(min / 60) + 'h ' + (min %% 60) + 'm';
+}
+
+function tempClass(t) { if (t < 5 || t > 35) return 'err'; if (t < 18 || t > 28) return 'warn'; return 'ok'; }
+function humClass(h)  { return (h < 30 || h > 70) ? 'warn' : 'ok'; }
+function socClass(s)  { if (s < 20) return 'err'; if (s < 50) return 'warn'; return 'ok'; }
+function co2Class(p)  { if (p > 2000) return 'err'; if (p > 1000) return 'warn'; return 'ok'; }
+
+function toggleIP(cb) {
+  document.getElementById('ip-fields').style.display = cb.checked ? 'block' : 'none';
+}
+
+function openTab(evt, name) {
+  document.querySelectorAll('.tabcontent').forEach(t => t.style.display = 'none');
+  document.querySelectorAll('.tab button').forEach(b => b.classList.remove('active'));
+  document.getElementById(name).style.display = 'block';
+  evt.currentTarget.classList.add('active');
+}
+
 window.addEventListener('load', () => {
   document.getElementById('defaultTab').click();
+  // Checkbox-Zustand aus Processor wiederherstellen
   const cb = document.getElementById('wifiStatic');
   if (cb && cb.checked)
     document.getElementById('ip-fields').style.display = 'block';
-  initDatepickers();
+  initCharts();
   poll();
   setInterval(poll, 5000);
 });
+
+  async function listSD() {
+      const dir = getVal('sdDir');
+      try {
+          const r = await fetch('/api/sd/list?dir=' + encodeURIComponent(dir));
+          const d = await r.json();
+          const div = document.getElementById('sdFiles');
+          div.innerHTML = '';
+          d.files.forEach(f => {
+              const line = document.createElement('div');
+              if (f.dir) {
+                  line.textContent = '📁 ' + f.name;
+              } else {
+                  line.innerHTML = `📄 ${f.name} (${(f.size/1024).toFixed(1)} KB) ` +
+                      `<a href="/api/sd/download?file=${encodeURIComponent(dir+'/'+f.name)}" ` +
+                      `style="color:#44aaff">Download</a>`;
+              }
+              div.appendChild(line);
+          });
+      } catch(e) { document.getElementById('sdFiles').textContent = 'Fehler'; }
+  }
+
+  async function uploadSD() {
+      const file = document.getElementById('sdUploadFile').files[0];
+      if (!file) return;
+      const dir  = getVal('sdUploadDir');
+      const form = new FormData();
+      form.append('file', file);
+      try {
+          const r = await fetch('/api/sd/upload?dir=' + encodeURIComponent(dir), {
+              method: 'POST', body: form
+          });
+          document.getElementById('sdUploadStatus').textContent =
+              r.ok ? 'Hochgeladen!' : 'Fehler';
+      } catch(e) {
+          document.getElementById('sdUploadStatus').textContent = 'Fehler';
+      }
+  }
 </script>
 </head>
 
@@ -390,8 +366,7 @@ window.addEventListener('load', () => {
 <!-- Tab-Leiste -->
 <div class="tab">
   <button class="tablink" id="defaultTab" onclick="openTab(event,'status')">Status</button>
-  <button class="tablink"                 onclick="openTab(event,'histKlima')">Klima-Verlauf</button>
-  <button class="tablink"                 onclick="openTab(event,'histBat')">Batterie-Verlauf</button>
+  <button class="tablink"                 onclick="openTab(event,'history')">Verlauf</button>
   <button class="tablink"                 onclick="openTab(event,'config')">Konfiguration</button>
   <button class="tablink"                 onclick="openTab(event,'help')">Hilfe</button>
 </div>
@@ -418,7 +393,7 @@ window.addEventListener('load', () => {
       <div class="kv"><label>Temperatur:</label> <span class="badge neutral" id="valTemp">---</span></div>
       <div class="kv"><label>Feuchte:</label>    <span class="badge neutral" id="valHum">---</span></div>
       <div class="kv"><label>Luftdruck:</label>  <span class="badge neutral" id="valPress">---</span></div>
-      <div class="kv"><label>CO2:</label>        <span class="badge neutral" id="valCO2">---</span></div>
+      <div class="kv"><label>CO₂:</label>        <span class="badge neutral" id="valCO2">---</span></div>
     </div>
 
   </div>
@@ -426,46 +401,18 @@ window.addEventListener('load', () => {
 
 
 <!-- ============================================================ -->
-<!-- TAB: KLIMA-VERLAUF                                          -->
+<!-- TAB: VERLAUF                                                -->
 <!-- ============================================================ -->
-<div id="histKlima" class="tabcontent">
-  <div class="history-controls">
-    <label>Von</label>
-    <input type="datetime-local" id="from_klima">
-    <label>Bis</label>
-    <input type="datetime-local" id="to_klima">
-    <button class="btn" onclick="loadHistory('klima')">Laden</button>
-    <span id="info_klima" style="color:#666688;font-size:0.85em"></span>
-  </div>
+<div id="history" class="tabcontent">
+  <h2>Klima-Verlauf</h2>
   <div class="chart-wrap">
-    <canvas id="chart_klima"></canvas>
-    <div class="chart-loading" id="loading_klima" style="display:none">Lade Daten...</div>
+    <canvas id="chartKlima"></canvas>
   </div>
-  <p style="color:#666688;font-size:0.8em">
-    Luftdruck und CO2 sind standardmäßig ausgeblendet – in der Legende anklicken zum Einblenden.
-  </p>
-</div>
 
-
-<!-- ============================================================ -->
-<!-- TAB: BATTERIE-VERLAUF                                       -->
-<!-- ============================================================ -->
-<div id="histBat" class="tabcontent">
-  <div class="history-controls">
-    <label>Von</label>
-    <input type="datetime-local" id="from_bat">
-    <label>Bis</label>
-    <input type="datetime-local" id="to_bat">
-    <button class="btn" onclick="loadHistory('bat')">Laden</button>
-    <span id="info_bat" style="color:#666688;font-size:0.85em"></span>
-  </div>
+  <h2>Batterie-Verlauf</h2>
   <div class="chart-wrap">
-    <canvas id="chart_bat"></canvas>
-    <div class="chart-loading" id="loading_bat" style="display:none">Lade Daten...</div>
+    <canvas id="chartBatterie"></canvas>
   </div>
-  <p style="color:#666688;font-size:0.8em">
-    Leistung ist standardmäßig ausgeblendet – in der Legende anklicken zum Einblenden.
-  </p>
 </div>
 
 
@@ -516,76 +463,32 @@ window.addEventListener('load', () => {
   <h2>Hilfe</h2>
   <ul>
     <li>Tab <strong>Status</strong>: Aktuelle Messwerte vom Sensor-ESP</li>
-    <li>Tab <strong>Klima-Verlauf</strong>: Temperatur, Feuchte, Luftdruck, CO2 aus SD-Karte</li>
-    <li>Tab <strong>Batterie-Verlauf</strong>: Spannung, Strom, SoC, Leistung aus SD-Karte</li>
+    <li>Tab <strong>Verlauf</strong>: Grafische Darstellung der letzten 60 Messwerte</li>
     <li>Tab <strong>Konfiguration</strong>: IPs der Geräte, WLAN, feste IP</li>
-    <li>Aktuelle Werte werden alle 5 Sekunden aktualisiert</li>
+    <li>Werte werden automatisch alle 5 Sekunden aktualisiert</li>
     <li>OTA-Update unter <a href="/update" style="color:#44aaff">/update</a></li>
   </ul>
-
   <h2>SD-Karte</h2>
   <div class="form-row">
     <label>Verzeichnis</label>
-    <input type="text" id="sdDir" value="/2025" style="width:120px">
+    <input type="text" id="sdDir" value="/2025">
     <button class="btn" onclick="listSD()">Auflisten</button>
   </div>
-  <div id="sdFiles" style="margin-top:8px;font-size:0.85em;line-height:1.8"></div>
+  <div id="sdFiles" style="margin-top:8px"></div>
 
   <h2>Datei hochladen</h2>
   <div class="form-row">
     <label>Zielverzeichnis</label>
-    <input type="text" id="sdUploadDir" value="/2025" style="width:120px">
+    <input type="text" id="sdUploadDir" value="/2025">
   </div>
   <input type="file" id="sdUploadFile" accept=".csv">
   <button class="btn" onclick="uploadSD()">Hochladen</button>
-  <div class="status" id="sdUploadStatus" style="margin-top:6px;color:#ffff88"></div>
+  <div class="status" id="sdUploadStatus"></div>
 
   <h2>Log-Nachrichten</h2>
   <button class="btn" onclick="document.getElementById('logContainer').innerHTML=''">Log leeren</button>
   <div id="logContainer"></div>
 </div>
-
-<script>
-// SD-Funktionen (nach dem HTML damit IDs verfügbar sind)
-async function listSD() {
-  const dir = getVal('sdDir');
-  try {
-    const r = await fetch('/api/sd/list?dir=' + encodeURIComponent(dir));
-    const d = await r.json();
-    const div = document.getElementById('sdFiles');
-    div.innerHTML = '';
-    if (!d.files || d.files.length === 0) { div.textContent = 'Keine Dateien'; return; }
-    d.files.forEach(f => {
-      const line = document.createElement('div');
-      if (f.dir) {
-        line.textContent = '📁 ' + f.name;
-      } else {
-        const dlPath = encodeURIComponent(dir + '/' + f.name);
-        line.innerHTML = `📄 ${f.name} (${(f.size/1024).toFixed(1)} KB) ` +
-          `<a href="/api/sd/download?file=${dlPath}" style="color:#44aaff">Download</a>`;
-      }
-      div.appendChild(line);
-    });
-  } catch(e) { document.getElementById('sdFiles').textContent = 'Fehler'; }
-}
-
-async function uploadSD() {
-  const file = document.getElementById('sdUploadFile').files[0];
-  if (!file) return;
-  const dir  = getVal('sdUploadDir');
-  const form = new FormData();
-  form.append('file', file);
-  try {
-    const r = await fetch('/api/sd/upload?dir=' + encodeURIComponent(dir), {
-      method: 'POST', body: form
-    });
-    document.getElementById('sdUploadStatus').textContent =
-      r.ok ? 'Erfolgreich hochgeladen!' : 'Fehler beim Hochladen';
-  } catch(e) {
-    document.getElementById('sdUploadStatus').textContent = 'Verbindungsfehler';
-  }
-}
-</script>
 
 </body>
 </html>

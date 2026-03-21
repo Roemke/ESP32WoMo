@@ -28,3 +28,5 @@ void     wifiSetup();
 bool     wifiIsConnected();
 String   wifiGetIP();
 void     wifiSetCredentials(const char *ssid, const char *password);
+bool     wifiTimeValid();
+String   wifiGetTime();
