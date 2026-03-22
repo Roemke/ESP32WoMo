@@ -8,7 +8,8 @@
 #include <ElegantOTA.h>
 #include "indexHtmlJS.h"
 #include "logging.h"
-#include "vedirect.h"
+#include "victronble.h"
+#include "bleconfig.h"
 
 AsyncWebServer server(HTTP_PORT);
 
@@ -22,9 +23,13 @@ String processor(const String& var)
     if (var == "BME_SDA")       return String(sensorConfig.bme_sda);
     if (var == "BME_SCL")       return String(sensorConfig.bme_scl);
     if (var == "BME_ADDR")      return String(sensorConfig.bme_addr);
-    if (var == "BME_INTERVAL")  return String(sensorConfig.bme_interval_ms);
-    if (var == "VE_RX")         return String(sensorConfig.vedirect_rx);
-    if (var == "VE_BAUD")       return String(sensorConfig.vedirect_baud);
+    if (var == "BME_INTERVAL")  return String(sensorConfig.bme_interval_ms);    
+    if (var == "BMV_MAC")        return String(bleConfig.bmv_mac);
+    if (var == "BMV_BINDKEY")    return String(bleConfig.bmv_bindkey);
+    if (var == "MPPT1_MAC")      return String(bleConfig.mppt1_mac);
+    if (var == "MPPT1_BINDKEY")  return String(bleConfig.mppt1_bindkey);
+    if (var == "MPPT2_MAC")      return String(bleConfig.mppt2_mac);
+    if (var == "MPPT2_BINDKEY")  return String(bleConfig.mppt2_bindkey);
     return "";
 }
 
@@ -33,24 +38,25 @@ String processor(const String& var)
 String buildDataJson(uint8_t from)
 {
     JsonDocument doc;
-    doc["bme"]      = serialized(bme280ToJson());
-    doc["vedirect"] = serialized(vedirectToJson());
-    doc["wifi"]     = wifiGetIP();
+    doc["bme"]     = serialized(bme280ToJson());
+    doc["vedirect"] = serialized(bmvToJson());      // BMV712 via BLE
+    doc["mppt1"]   = serialized(mppt1ToJson());     // MPPT1 via BLE
+    doc["mppt2"]   = serialized(mppt2ToJson());     // MPPT2 via BLE
+    doc["wifi"]    = wifiGetIP();
 
-    // Log-Zeilen ab 'from' senden
     JsonArray logs = doc["log"].to<JsonArray>();
-    //logCount aus logging.h
-    for (uint8_t i = from; i < logCount; i++)
+    for (uint32_t i = from; i < logCount; i++)
     {
         uint8_t idx = (logIndex + LOG_BUFFER_SIZE - logCount + i) % LOG_BUFFER_SIZE;
         logs.add(logBuffer[idx]);
     }
-    doc["logCount"] = logCount; // Client weiß wo er beim nächsten Poll anfängt
+    doc["logCount"] = logCount;
 
     String out;
     serializeJson(doc, out);
     return out;
 }
+
 
 void handleConfigPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, size_t, size_t)
 {
@@ -64,8 +70,6 @@ void handleConfigPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, siz
     if (doc["bme_scl"].is<int>())         sensorConfig.bme_scl         = doc["bme_scl"];
     if (doc["bme_addr"].is<int>())        sensorConfig.bme_addr        = doc["bme_addr"];
     if (doc["bme_interval_ms"].is<int>()) sensorConfig.bme_interval_ms = doc["bme_interval_ms"];
-    if (doc["vedirect_rx"].is<int>())     sensorConfig.vedirect_rx     = doc["vedirect_rx"];
-    if (doc["vedirect_baud"].is<int>())   sensorConfig.vedirect_baud   = doc["vedirect_baud"];
     sensorConfigSave();
     req->send(200, "application/json", "{\"ok\":true}");
     delay(500);
@@ -103,36 +107,49 @@ void handleReboot(AsyncWebServerRequest *req)
     ESP.restart();
 }
 
-void setup() {
-    Serial.begin(115200);
-    delay(5000);
-    Serial.println("=== Sensor ESP startet ===");
-    
-    if (!LittleFS.begin(true))
-        Serial.println("LittleFS FEHLER");
-    else
-        Serial.println("LittleFS OK");
-
-    sensorConfigLoad();
-    Serial.println("Config OK");
-
-    wifiSetup();
-    Serial.println("WiFi OK");
-
-    
-    if (!bme280Setup())
-        Serial.println("BME280 FEHLER");
-    else
-        Serial.println("BME280 OK");
-    
-    // Hauptseite
-
+void addRoutes()
+{
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
     {
         request->send(200, "text/html", index_html, processor);
     });
 
     //api
+    
+    // BLE Konfiguration lesen
+    server.on("/api/config/ble", HTTP_GET, [](AsyncWebServerRequest *req)
+        { req->send(200, "application/json", bleConfigToJson()); });
+
+    // BLE Konfiguration schreiben
+    server.on("/api/config/ble", HTTP_POST,
+        [](AsyncWebServerRequest *req) {}, nullptr,
+        [](AsyncWebServerRequest *req, uint8_t *data, size_t len, size_t, size_t)
+        {
+            JsonDocument doc;
+            if (deserializeJson(doc, data, len))
+            {
+                req->send(400, "application/json", "{\"error\":\"JSON ungueltig\"}");
+                return;
+            }
+            if (doc["bmv_mac"].is<const char*>())
+                strlcpy(bleConfig.bmv_mac,       doc["bmv_mac"],       sizeof(bleConfig.bmv_mac));
+            if (doc["bmv_bindkey"].is<const char*>())
+                strlcpy(bleConfig.bmv_bindkey,   doc["bmv_bindkey"],   sizeof(bleConfig.bmv_bindkey));
+            if (doc["mppt1_mac"].is<const char*>())
+                strlcpy(bleConfig.mppt1_mac,     doc["mppt1_mac"],     sizeof(bleConfig.mppt1_mac));
+            if (doc["mppt1_bindkey"].is<const char*>())
+                strlcpy(bleConfig.mppt1_bindkey, doc["mppt1_bindkey"], sizeof(bleConfig.mppt1_bindkey));
+            if (doc["mppt2_mac"].is<const char*>())
+                strlcpy(bleConfig.mppt2_mac,     doc["mppt2_mac"],     sizeof(bleConfig.mppt2_mac));
+            if (doc["mppt2_bindkey"].is<const char*>())
+                strlcpy(bleConfig.mppt2_bindkey, doc["mppt2_bindkey"], sizeof(bleConfig.mppt2_bindkey));
+            bleConfigSave();
+            req->send(200, "application/json", "{\"ok\":true}");
+            delay(500);
+            ESP.restart();
+        }
+    );    
+
     // Alle Sensordaten
     server.on("/api/data", HTTP_GET, [](AsyncWebServerRequest *req)
     {
@@ -165,6 +182,39 @@ void setup() {
     server.onNotFound([](AsyncWebServerRequest *req)
         { req->send(404, "application/json", "{\"error\":\"nicht gefunden\"}"); });
 
+}
+void setup() {
+    Serial.begin(115200);
+    delay(5000);
+    Serial.println("=== Sensor ESP startet ===");
+    
+    if (!LittleFS.begin(true))
+        Serial.println("LittleFS FEHLER");
+    else
+        Serial.println("LittleFS OK");
+
+    sensorConfigLoad();
+    Serial.println("Config OK");
+
+    bleConfigLoad();
+    Serial.println("BleConfig OK");
+    
+
+    wifiSetup();
+    Serial.println("WiFi OK");
+
+    
+    if (!bme280Setup())
+        Serial.println("BME280 FEHLER");
+    else
+        Serial.println("BME280 OK");
+    
+    victronBleSetup();
+    Serial.println("VictronBLE OK");    
+    
+    // server routen setzen 
+    addRoutes();
+
     // OTA
     ElegantOTA.begin(&server);
     ElegantOTA.onStart([]() { logPrintln("OTA: Start"); });
@@ -179,6 +229,7 @@ void setup() {
 
 void loop() {
     bme280Loop();
+    victronBleLoop();
     //Serial.println(bme280ToJson());
     //delay(1000);
 }

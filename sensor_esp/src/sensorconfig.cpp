@@ -7,9 +7,7 @@ SensorConfig sensorConfig = {
     BME280_SDA_PIN_DEFAULT,
     BME280_SCL_PIN_DEFAULT,
     BME280_I2C_ADDR_DEFAULT,
-    BME280_INTERVAL_MS_DEFAULT,  
-    VEDIRECT_RX_PIN_DEFAULT,
-    VEDIRECT_BAUD
+    BME280_INTERVAL_MS_DEFAULT
 };
 
 bool sensorConfigLoad()
@@ -39,12 +37,10 @@ bool sensorConfigLoad()
     sensorConfig.bme_scl      = doc["bme_scl"]      | BME280_SCL_PIN_DEFAULT;
     sensorConfig.bme_addr     = doc["bme_addr"]      | BME280_I2C_ADDR_DEFAULT;
     sensorConfig.bme_interval_ms = doc["bme_interval_ms"] | BME280_INTERVAL_MS_DEFAULT;
-    sensorConfig.vedirect_rx  = doc["vedirect_rx"]   | VEDIRECT_RX_PIN_DEFAULT;
-    sensorConfig.vedirect_baud= doc["vedirect_baud"] | VEDIRECT_BAUD;
 
-    logPrintf("Config: geladen – BME SDA=%d SCL=%d  VE.Direct RX=%d\n",
-              sensorConfig.bme_sda, sensorConfig.bme_scl,
-              sensorConfig.vedirect_rx);
+    logPrintf("Config: geladen – BME SDA=%d SCL=%d \n",
+              sensorConfig.bme_sda, sensorConfig.bme_scl
+              );
     return true;
 }
 
@@ -70,8 +66,6 @@ String sensorConfigToJson()
     doc["bme_scl"]       = sensorConfig.bme_scl;
     doc["bme_addr"]      = sensorConfig.bme_addr;
     doc["bme_interval_ms"] = sensorConfig.bme_interval_ms;
-    doc["vedirect_rx"]   = sensorConfig.vedirect_rx;
-    doc["vedirect_baud"] = sensorConfig.vedirect_baud;
     String out;
     serializeJson(doc, out);
     return out;

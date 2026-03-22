@@ -199,7 +199,7 @@ async function loadStats() {
 }  
 
 // ================================================================
-// Polling – alle 5 Sekunden /api/data abrufen
+// Polling – alle 2 Sekunden /api/data abrufen
 // ================================================================
 let logFrom = 0;
 
@@ -229,7 +229,20 @@ async function poll() {
       setBadge('valTTG', ttgFormat(d.vedirect.TTG), 'neutral');
       setBadge('valVS',  d.vedirect.VS  + ' V',  'neutral');
     }
-
+    // MPPT1
+    if (d.mppt1 && d.mppt1.valid) {
+      setBadge('mppt1V',  d.mppt1.V     + ' V',  'neutral');
+      setBadge('mppt1I',  d.mppt1.I     + ' A',  'neutral');
+      setBadge('mppt1PV', d.mppt1.PV    + ' W',  'neutral');
+      setBadge('mppt1Y',  d.mppt1.yield + ' Wh', 'neutral');
+    }
+    // MPPT2
+    if (d.mppt2 && d.mppt2.valid) {
+      setBadge('mppt2V',  d.mppt2.V     + ' V',  'neutral');
+      setBadge('mppt2I',  d.mppt2.I     + ' A',  'neutral');
+      setBadge('mppt2PV', d.mppt2.PV    + ' W',  'neutral');
+      setBadge('mppt2Y',  d.mppt2.yield + ' Wh', 'neutral');
+    }
     // Log
     if (d.log && d.log.length > 0) {
       const c = document.getElementById('logContainer');
@@ -448,6 +461,23 @@ window.addEventListener('load', () => {
       <div class="kv"><label>SoC:</label>             <span class="badge neutral" id="valSOC">---</span></div>
       <div class="kv"><label>Restlaufzeit:</label>    <span class="badge neutral" id="valTTG">---</span></div>
       <div class="kv"><label>Starterbatterie:</label> <span class="badge neutral" id="valVS">---</span></div>
+    </div>
+    <!-- MPPT1 -->
+    <div class="status-box">
+      <h2>Solar MPPT1</h2>
+      <div class="kv"><label>Spannung:</label>    <span class="badge neutral" id="mppt1V">---</span></div>
+      <div class="kv"><label>Strom:</label>       <span class="badge neutral" id="mppt1I">---</span></div>
+      <div class="kv"><label>Leistung PV:</label> <span class="badge neutral" id="mppt1PV">---</span></div>
+      <div class="kv"><label>Ertrag heute:</label><span class="badge neutral" id="mppt1Y">---</span></div>
+    </div>
+
+    <!-- MPPT2 -->
+    <div class="status-box">
+      <h2>Solar MPPT2</h2>
+      <div class="kv"><label>Spannung:</label>    <span class="badge neutral" id="mppt2V">---</span></div>
+      <div class="kv"><label>Strom:</label>       <span class="badge neutral" id="mppt2I">---</span></div>
+      <div class="kv"><label>Leistung PV:</label> <span class="badge neutral" id="mppt2PV">---</span></div>
+      <div class="kv"><label>Ertrag heute:</label><span class="badge neutral" id="mppt2Y">---</span></div>
     </div>
 
     <div class="status-box">

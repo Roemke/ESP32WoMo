@@ -9,7 +9,7 @@ struct SensorData
     float   temperature;
     float   humidity;
     float   pressure;
-    // VE.Direct
+    // VE.Direct / BMV712
     bool    vedirect_valid;
     float   voltage;
     float   current;
@@ -20,6 +20,18 @@ struct SensorData
     // CO2
     bool    co2_valid;
     int     co2_ppm;
+    // MPPT1
+    bool    mppt1_valid;
+    float   mppt1_voltage;
+    float   mppt1_current;
+    float   mppt1_pv_power;
+    uint16_t mppt1_yield_today;
+    // MPPT2
+    bool    mppt2_valid;
+    float   mppt2_voltage;
+    float   mppt2_current;
+    float   mppt2_pv_power;
+    uint16_t mppt2_yield_today;
 };
 
 struct RingStats {
@@ -44,6 +56,10 @@ struct RingEntry {
     float T, H, P;
     int   CO2;
     float V, I, SOC, PW, VS;
+    // MPPT
+    float mppt1_V, mppt1_I, mppt1_PV;
+    float mppt2_V, mppt2_I, mppt2_PV;
+    uint16_t mppt1_yield, mppt2_yield;
 };
 
 extern RingEntry *ringBuffer;

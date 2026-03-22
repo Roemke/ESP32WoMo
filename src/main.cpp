@@ -60,6 +60,7 @@ String buildDataJson()
         bme["P"] = sensorData.pressure;
     }
 
+    // VE.Direct / BMV712
     JsonObject ve = doc["vedirect"].to<JsonObject>();
     ve["valid"] = sensorData.vedirect_valid;
     if (sensorData.vedirect_valid)
@@ -72,6 +73,29 @@ String buildDataJson()
         ve["VS"]  = sensorData.voltage_starter;
     }
 
+    // MPPT1
+    JsonObject m1 = doc["mppt1"].to<JsonObject>();
+    m1["valid"] = sensorData.mppt1_valid;
+    if (sensorData.mppt1_valid)
+    {
+        m1["V"]     = sensorData.mppt1_voltage;
+        m1["I"]     = sensorData.mppt1_current;
+        m1["PV"]    = sensorData.mppt1_pv_power;
+        m1["yield"] = sensorData.mppt1_yield_today;
+    }
+
+    // MPPT2
+    JsonObject m2 = doc["mppt2"].to<JsonObject>();
+    m2["valid"] = sensorData.mppt2_valid;
+    if (sensorData.mppt2_valid)
+    {
+        m2["V"]     = sensorData.mppt2_voltage;
+        m2["I"]     = sensorData.mppt2_current;
+        m2["PV"]    = sensorData.mppt2_pv_power;
+        m2["yield"] = sensorData.mppt2_yield_today;
+    }
+
+    // CO2
     JsonObject co2 = doc["co2"].to<JsonObject>();
     co2["valid"] = sensorData.co2_valid;
     if (sensorData.co2_valid)

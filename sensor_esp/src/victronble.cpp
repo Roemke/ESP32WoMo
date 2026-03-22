@@ -1,0 +1,157 @@
+#include "victronble.h"
+#include "bleconfig.h"
+#include "logging.h"
+
+// BLE nur wenn nicht S2 Mini (kein BLE)
+#ifndef CONFIG_IDF_TARGET_ESP32S2
+
+#include <VictronBLE.h>
+
+static VictronBLE victron;
+static bool s_initialized = false;
+
+BmvData  bmvData  = {};
+MpptData mppt1Data = {};
+MpptData mppt2Data = {};
+
+static void onVictronData(const VictronDevice *dev)
+{
+    if (!dev->dataValid) return;
+
+    if (dev->deviceType == DEVICE_TYPE_BATTERY_MONITOR)
+    {
+        const VictronBatteryData &b = dev->battery;
+        bmvData.valid           = true;
+        bmvData.voltage         = b.voltage;
+        bmvData.current         = b.current;
+        bmvData.power           = b.voltage * b.current;
+        bmvData.soc             = b.soc;
+        bmvData.ttg             = b.remainingMinutes;
+        bmvData.voltage_starter = b.auxVoltage;
+        bmvData.consumed_ah     = b.consumedAh;
+        bmvData.lastUpdateMs    = millis();
+        logPrintf("BMV712: %.2fV %.2fA %.1f%% TTG=%dmin\n",
+            b.voltage, b.current, b.soc, b.remainingMinutes);
+    }
+    else if (dev->deviceType == DEVICE_TYPE_SOLAR_CHARGER)
+    {
+        const VictronSolarData &s = dev->solar;
+        // anhand MAC unterscheiden welcher MPPT
+        bool isMppt1 = (strlen(bleConfig.mppt1_mac) > 0 &&
+                        strncasecmp(dev->mac, bleConfig.mppt1_mac, 12) == 0);
+        MpptData &mppt = isMppt1 ? mppt1Data : mppt2Data;
+        mppt.valid           = true;
+        mppt.battery_voltage = s.batteryVoltage;
+        mppt.battery_current = s.batteryCurrent;
+        mppt.panel_power     = s.panelPower;
+        mppt.yield_today     = s.yieldToday;
+        mppt.charge_state    = s.chargeState;
+        mppt.lastUpdateMs    = millis();
+        logPrintf("MPPT%d: %.2fV %.2fA %dW Ertrag=%dWh\n",
+            isMppt1 ? 1 : 2,
+            s.batteryVoltage, s.batteryCurrent,
+            (int)s.panelPower, s.yieldToday);
+    }
+}
+
+void victronBleSetup()
+{
+    if (strlen(bleConfig.bmv_mac) == 0 && 
+        strlen(bleConfig.mppt1_mac) == 0 &&
+        strlen(bleConfig.mppt2_mac) == 0)
+    {
+        logPrintln("VictronBLE: Keine Geräte konfiguriert");
+        return;
+    }
+
+    if (!victron.begin(5))
+    {
+        logPrintln("VictronBLE: BLE init FEHLER");
+        return;
+    }
+
+    victron.setCallback(onVictronData);
+    victron.setMinInterval(2000);
+
+    if (strlen(bleConfig.bmv_mac) > 0)
+        victron.addDevice("BMV712", bleConfig.bmv_mac, bleConfig.bmv_bindkey,
+                          DEVICE_TYPE_BATTERY_MONITOR);
+
+    if (strlen(bleConfig.mppt1_mac) > 0)
+        victron.addDevice("MPPT1", bleConfig.mppt1_mac, bleConfig.mppt1_bindkey,
+                          DEVICE_TYPE_SOLAR_CHARGER);
+
+    if (strlen(bleConfig.mppt2_mac) > 0)
+        victron.addDevice("MPPT2", bleConfig.mppt2_mac, bleConfig.mppt2_bindkey,
+                          DEVICE_TYPE_SOLAR_CHARGER);
+
+    s_initialized = true;
+    logPrintln("VictronBLE: gestartet");
+}
+
+void victronBleLoop()
+{
+    if (!s_initialized) return;
+
+    // Daten als ungültig markieren wenn älter als 30s
+    if (bmvData.valid && millis() - bmvData.lastUpdateMs > 30000)
+    {
+        bmvData.valid = false;
+        logPrintln("BMV712: Timeout");
+    }
+    if (mppt1Data.valid && millis() - mppt1Data.lastUpdateMs > 30000)
+        mppt1Data.valid = false;
+    if (mppt2Data.valid && millis() - mppt2Data.lastUpdateMs > 30000)
+        mppt2Data.valid = false;
+
+    victron.loop();
+}
+
+#else
+// S2 Mini – kein BLE
+BmvData  bmvData   = {};
+MpptData mppt1Data = {};
+MpptData mppt2Data = {};
+void victronBleSetup() { logPrintln("VictronBLE: S2 Mini hat kein BLE"); }
+void victronBleLoop()  {}
+#endif
+
+// ---- JSON Ausgabe ----------------------------------------
+String bmvToJson()
+{
+    JsonDocument doc;
+    doc["valid"] = bmvData.valid;
+    if (bmvData.valid)
+    {
+        doc["V"]   = serialized(String(bmvData.voltage,         2));
+        doc["I"]   = serialized(String(bmvData.current,         2));
+        doc["P"]   = serialized(String(bmvData.power,           1));
+        doc["SOC"] = serialized(String(bmvData.soc,             1));
+        doc["TTG"] = bmvData.ttg;
+        doc["VS"]  = serialized(String(bmvData.voltage_starter, 2));
+        doc["AH"]  = serialized(String(bmvData.consumed_ah,     1));
+    }
+    String out;
+    serializeJson(doc, out);
+    return out;
+}
+
+String mpptToJson(const MpptData &m)
+{
+    JsonDocument doc;
+    doc["valid"] = m.valid;
+    if (m.valid)
+    {
+        doc["V"]     = serialized(String(m.battery_voltage, 2));
+        doc["I"]     = serialized(String(m.battery_current, 2));
+        doc["PV"]    = serialized(String(m.panel_power,     1));
+        doc["yield"] = m.yield_today;
+        doc["state"] = m.charge_state;
+    }
+    String out;
+    serializeJson(doc, out);
+    return out;
+}
+
+String mppt1ToJson() { return mpptToJson(mppt1Data); }
+String mppt2ToJson() { return mpptToJson(mppt2Data); }

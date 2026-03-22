@@ -40,3 +40,10 @@
 // ---- Logging -----------------------------------------------
 #define LOG_BUFFER_SIZE          50
 #define LOG_LINE_LENGTH          128
+
+#define BLE_BMV_MAC_DEFAULT      ""
+#define BLE_BMV_BINDKEY_DEFAULT  ""
+#define BLE_MPPT1_MAC_DEFAULT    ""
+#define BLE_MPPT1_BINDKEY_DEFAULT ""
+#define BLE_MPPT2_MAC_DEFAULT    ""
+#define BLE_MPPT2_BINDKEY_DEFAULT ""

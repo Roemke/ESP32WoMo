@@ -15,8 +15,6 @@ struct SensorConfig
     int     bme_scl;
     uint8_t bme_addr;
     int     bme_interval_ms;    
-    int     vedirect_rx;
-    int     vedirect_baud;
 };
 
 extern SensorConfig sensorConfig;

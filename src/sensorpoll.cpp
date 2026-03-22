@@ -171,7 +171,7 @@ void sensorPollLoop()
         sensorData.pressure    = doc["bme"]["P"] | 0.0f;
     }
 
-    // VE.Direct
+    // VE.Direct - nicht mehr, aber auf dieser schnittstelle, wobei der sensor_esp per ble lesen wird, wenns klappt
     sensorData.vedirect_valid = doc["vedirect"]["valid"] | false;
     if (sensorData.vedirect_valid)
     {
@@ -181,6 +181,25 @@ void sensorPollLoop()
         sensorData.soc             = doc["vedirect"]["SOC"] | 0.0f;
         sensorData.ttg             = doc["vedirect"]["TTG"] | -1;
         sensorData.voltage_starter = doc["vedirect"]["VS"]  | 0.0f;
+    }
+    // MPPT1
+    sensorData.mppt1_valid = doc["mppt1"]["valid"] | false;
+    if (sensorData.mppt1_valid)
+    {
+        sensorData.mppt1_voltage     = doc["mppt1"]["V"]     | 0.0f;
+        sensorData.mppt1_current     = doc["mppt1"]["I"]     | 0.0f;
+        sensorData.mppt1_pv_power    = doc["mppt1"]["PV"]    | 0.0f;
+        sensorData.mppt1_yield_today = doc["mppt1"]["yield"] | 0;
+    }
+
+    // MPPT2
+    sensorData.mppt2_valid = doc["mppt2"]["valid"] | false;
+    if (sensorData.mppt2_valid)
+    {
+        sensorData.mppt2_voltage     = doc["mppt2"]["V"]     | 0.0f;
+        sensorData.mppt2_current     = doc["mppt2"]["I"]     | 0.0f;
+        sensorData.mppt2_pv_power    = doc["mppt2"]["PV"]    | 0.0f;
+        sensorData.mppt2_yield_today = doc["mppt2"]["yield"] | 0;
     }
 
     // CO2
@@ -202,6 +221,14 @@ void sensorPollLoop()
         e.SOC = sensorData.soc;
         e.PW  = sensorData.power;
         e.VS  = sensorData.voltage_starter;
+        e.mppt1_V     = sensorData.mppt1_voltage;
+        e.mppt1_I     = sensorData.mppt1_current;
+        e.mppt1_PV    = sensorData.mppt1_pv_power;
+        e.mppt1_yield = sensorData.mppt1_yield_today;
+        e.mppt2_V     = sensorData.mppt2_voltage;
+        e.mppt2_I     = sensorData.mppt2_current;
+        e.mppt2_PV    = sensorData.mppt2_pv_power;
+        e.mppt2_yield = sensorData.mppt2_yield_today;
         ringHead = (ringHead + 1) % RING_MAX_ENTRIES;
         if (ringCount < RING_MAX_ENTRIES) ringCount++;
     }    

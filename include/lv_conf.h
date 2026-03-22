@@ -84,7 +84,7 @@
     #endif
 #endif  /*LV_USE_STDLIB_MALLOC == LV_STDLIB_BUILTIN*/
 #endif 
-//überschreiben durch ki für psram
+//überschreiben durch ki für psram - super spart jede menge heap
 #if LV_USE_STDLIB_MALLOC == LV_STDLIB_BUILTIN
     #define LV_MEM_SIZE (256 * 1024U)
     #define LV_MEM_POOL_EXPAND_SIZE 0

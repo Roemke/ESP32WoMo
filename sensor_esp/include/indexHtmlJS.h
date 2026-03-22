@@ -5,9 +5,10 @@
 // Platzhalter (werden beim Ausliefern durch processor() ersetzt):
 //   %WIFI_MAC_AP%   %WIFI_MAC_STA%   %WIFI_MODE%
 //   %BME_SDA%       %BME_SCL%        %BME_ADDR%
-//   %BME_INTERVAL%  %VE_RX%          %VE_BAUD%
-//
-// Messwerte kommen per Polling alle 5s von /api/data
+//   %BME_INTERVAL%
+//   %BMV_MAC%       %BMV_BINDKEY%
+//   %MPPT1_MAC%     %MPPT2_MAC%//
+// Messwerte kommen per Polling alle 2s von /api/data
 // Konfigurationswerte werden beim Laden per /api/config geholt
 // ----------------------------------------------------------------
 
@@ -126,6 +127,20 @@ async function poll() {
       setBadge('valTTG', ttgFormat(d.vedirect.TTG), 'neutral');
       setBadge('valVS',  d.vedirect.VS  + ' V',  'neutral');
     }
+    // MPPT1
+    if (d.mppt1 && d.mppt1.valid) {
+      setBadge('mppt1V',  d.mppt1.V  + ' V', 'neutral');
+      setBadge('mppt1I',  d.mppt1.I  + ' A', 'neutral');
+      setBadge('mppt1PV', d.mppt1.PV + ' W', 'neutral');
+      setBadge('mppt1Y',  d.mppt1.yield + ' Wh', 'neutral');
+    }
+    // MPPT2
+    if (d.mppt2 && d.mppt2.valid) {
+      setBadge('mppt2V',  d.mppt2.V  + ' V', 'neutral');
+      setBadge('mppt2I',  d.mppt2.I  + ' A', 'neutral');
+      setBadge('mppt2PV', d.mppt2.PV + ' W', 'neutral');
+      setBadge('mppt2Y',  d.mppt2.yield + ' Wh', 'neutral');
+    }  
 
     // Log – neue Zeilen anhängen
     if (d.log && d.log.length > 0) {
@@ -155,8 +170,19 @@ async function loadConfig() {
     setVal('cfg-bme-scl',      d.bme_scl);
     setVal('cfg-bme-addr',     d.bme_addr);
     setVal('cfg-bme-interval', d.bme_interval_ms);
-    setVal('cfg-ve-rx',        d.vedirect_rx);
-    setVal('cfg-ve-baud',      d.vedirect_baud);
+  } catch(e) {}
+}
+
+async function loadBleConfig() {
+  try {
+    const r = await fetch('/api/config/ble');
+    const d = await r.json();
+    setVal('cfg-bmv-mac',     d.bmv_mac);
+    setVal('cfg-bmv-key',     d.bmv_bindkey);
+    setVal('cfg-mppt1-mac',   d.mppt1_mac);
+    setVal('cfg-mppt1-key',   d.mppt1_bindkey);
+    setVal('cfg-mppt2-mac',   d.mppt2_mac);
+    setVal('cfg-mppt2-key',   d.mppt2_bindkey);
   } catch(e) {}
 }
 
@@ -169,8 +195,6 @@ async function saveConfig() {
     bme_scl:         parseInt(getVal('cfg-bme-scl')),
     bme_addr:        parseInt(getVal('cfg-bme-addr')),
     bme_interval_ms: parseInt(getVal('cfg-bme-interval')),
-    vedirect_rx:     parseInt(getVal('cfg-ve-rx')),
-    vedirect_baud:   parseInt(getVal('cfg-ve-baud'))
   };
   try {
     await fetch('/api/config', {
@@ -203,6 +227,27 @@ async function saveWifi() {
   } catch(e) {}
 }
 
+// ================================================================
+// BLE Einstellungen speichern 
+// ================================================================
+async function saveBle() {
+  const body = {
+    bmv_mac:       getVal('cfg-bmv-mac'),
+    bmv_bindkey:   getVal('cfg-bmv-key'),
+    mppt1_mac:     getVal('cfg-mppt1-mac'),
+    mppt1_bindkey: getVal('cfg-mppt1-key'),
+    mppt2_mac:     getVal('cfg-mppt2-mac'),
+    mppt2_bindkey: getVal('cfg-mppt2-key')
+  };
+  try {
+    await fetch('/api/config/ble', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    document.getElementById('bleInfo').classList.remove('invisible');
+  } catch(e) {}
+}
 // ================================================================
 // Hilfsfunktionen
 // ================================================================
@@ -249,6 +294,8 @@ function openTab(evt, name) {
 }
 
 window.addEventListener('load', () => {
+  loadBleConfig();
+  loadConfig();
   document.getElementById('defaultTab').click();  
   poll();
   setInterval(poll, 5000);
@@ -291,6 +338,17 @@ window.addEventListener('load', () => {
   <div class="kv"><label>SoC:</label>            <span class="badge neutral" id="valSOC">---</span></div>
   <div class="kv"><label>Restlaufzeit:</label>   <span class="badge neutral" id="valTTG">---</span></div>
   <div class="kv"><label>Starterbatterie:</label><span class="badge neutral" id="valVS">---</span></div>
+  <h2>Solar MPPT1</h2>
+  <div class="kv"><label>Spannung:</label>    <span class="badge neutral" id="mppt1V">---</span></div>
+  <div class="kv"><label>Strom:</label>       <span class="badge neutral" id="mppt1I">---</span></div>
+  <div class="kv"><label>Leistung PV:</label> <span class="badge neutral" id="mppt1PV">---</span></div>
+  <div class="kv"><label>Ertrag heute:</label><span class="badge neutral" id="mppt1Y">---</span></div>
+
+  <h2>Solar MPPT2</h2>
+  <div class="kv"><label>Spannung:</label>    <span class="badge neutral" id="mppt2V">---</span></div>
+  <div class="kv"><label>Strom:</label>       <span class="badge neutral" id="mppt2I">---</span></div>
+  <div class="kv"><label>Leistung PV:</label> <span class="badge neutral" id="mppt2PV">---</span></div>
+  <div class="kv"><label>Ertrag heute:</label><span class="badge neutral" id="mppt2Y">---</span></div>
 </div>
 
 
@@ -303,19 +361,29 @@ window.addEventListener('load', () => {
   <div class="kv"><label>MAC AP-Modus:</label>     <span>%WIFI_MAC_AP%</span></div>
   <div class="kv"><label>MAC Client-Modus:</label> <span>%WIFI_MAC_STA%</span></div>
 
-  <h2>Sensor-Pins</h2>
-    <div class="form-row"><label>BME280 SDA (GPIO)</label>   <input type="number" id="cfg-bme-sda"      value="%BME_SDA%"></div>
-    <div class="form-row"><label>BME280 SCL (GPIO)</label>   <input type="number" id="cfg-bme-scl"      value="%BME_SCL%"></div>
-    <div class="form-row"><label>BME280 Adresse</label>      <input type="number" id="cfg-bme-addr"     value="%BME_ADDR%"></div>
-    <div class="form-row"><label>Messintervall (ms)</label>  <input type="number" id="cfg-bme-interval" value="%BME_INTERVAL%"></div>
-    <div class="form-row"><label>VE.Direct RX (GPIO)</label> <input type="number" id="cfg-ve-rx"        value="%VE_RX%"></div>
-    <div class="form-row"><label>VE.Direct Baud</label>      <input type="number" id="cfg-ve-baud"      value="%VE_BAUD%"></div>
+<h2>Sensor-Pins</h2>
+    <div class="form-row"><label>BME280 SDA (GPIO)</label>  <input type="number" id="cfg-bme-sda"      value="%BME_SDA%"></div>
+    <div class="form-row"><label>BME280 SCL (GPIO)</label>  <input type="number" id="cfg-bme-scl"      value="%BME_SCL%"></div>
+    <div class="form-row"><label>BME280 Adresse</label>     <input type="number" id="cfg-bme-addr"     value="%BME_ADDR%"></div>
+    <div class="form-row"><label>Messintervall (ms)</label> <input type="number" id="cfg-bme-interval" value="%BME_INTERVAL%"></div>
     <button class="btn" onclick="saveConfig()">Speichern &amp; Neustart</button>
     <div class="infoField invisible" id="cfgInfo">
-        <strong>Konfiguration gespeichert.</strong> Der ESP startet neu.
+      <strong>Konfiguration gespeichert.</strong> Der ESP startet neu.
     </div>
 
-  <h2>WLAN Konfiguration</h2>
+  <h2>Victron BLE</h2>
+    <div class="form-row"><label>BMV712 MAC</label>       <input type="text" id="cfg-bmv-mac"      value="%BMV_MAC%"      placeholder="AA:BB:CC:DD:EE:FF"></div>
+    <div class="form-row"><label>BMV712 Key</label>       <input type="text" id="cfg-bmv-key"      value="%BMV_BINDKEY%"  placeholder="32 hex Zeichen"></div>
+    <div class="form-row"><label>MPPT1 MAC</label>        <input type="text" id="cfg-mppt1-mac"    value="%MPPT1_MAC%"    placeholder="leer = nicht genutzt"></div>
+    <div class="form-row"><label>MPPT1 Key</label>        <input type="text" id="cfg-mppt1-key"    value="%MPPT1_BINDKEY%" placeholder="32 hex Zeichen"></div>
+    <div class="form-row"><label>MPPT2 MAC</label>        <input type="text" id="cfg-mppt2-mac"    value="%MPPT2_MAC%"    placeholder="leer = nicht genutzt"></div>
+    <div class="form-row"><label>MPPT2 Key</label>        <input type="text" id="cfg-mppt2-key"    value="%MPPT2_BINDKEY%" placeholder="32 hex Zeichen"></div>
+    <button class="btn" onclick="saveBle()">BLE Speichern &amp; Neustart</button>
+    <div class="infoField invisible" id="bleInfo">
+      <strong>BLE Konfiguration gespeichert.</strong> Der ESP startet neu.
+    </div>
+
+    <h2>WLAN Konfiguration</h2>
   <div class="form-row"><label>SSID</label>    <input type="text"     id="wifiSsid" placeholder="Netzwerkname"></div>
   <div class="form-row"><label>Passwort</label><input type="password" id="wifiPass" placeholder="Passwort"></div>
   <div class="form-row">
