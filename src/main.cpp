@@ -16,9 +16,9 @@
 #include "config.h"  // für Defaults
 #include "appconfig.h" //für konfigurierbare geschichten 
 #include "sensorpoll.h"
-#include "ui_history.h"
+//#include "ui_history.h" ist raus 
 #include <SD.h> //für dateioperationen per webserver, hat logisch nichts mit sdcard.h zu tun.
-
+#include "ui_details.h"
 
 AsyncWebServer server(80);
 static auto lv_last_tick = millis();
@@ -129,6 +129,52 @@ void handleReboot(AsyncWebServerRequest *req)
     ESP.restart();
 }
 
+//stats abfrage behandeln 
+void handleStats(AsyncWebServerRequest *req)
+{
+    if (req->hasParam("hours"))
+    {
+        uint32_t hours = req->getParam("hours")->value().toInt();
+        if (hours != ringStats.hours)
+            calcRingStats(hours); // sofort neu bei Stunden-Änderung
+    }
+
+    if (!ringStats.valid)
+    {
+        req->send(200, "application/json", "{\"valid\":false}");
+        return;
+    }
+
+    JsonDocument doc;
+    doc["valid"] = true;
+    doc["hours"] = ringStats.hours;
+
+    auto addStats = [&](const char *key, float mn, float mx, float avg)
+    {
+        doc[key]["min"] = mn;
+        doc[key]["max"] = mx;
+        doc[key]["avg"] = avg;
+    };
+
+    addStats("T",   ringStats.t_min,   ringStats.t_max,   ringStats.t_avg);
+    addStats("H",   ringStats.h_min,   ringStats.h_max,   ringStats.h_avg);
+    addStats("P",   ringStats.p_min,   ringStats.p_max,   ringStats.p_avg);
+    addStats("V",   ringStats.v_min,   ringStats.v_max,   ringStats.v_avg);
+    addStats("I",   ringStats.i_min,   ringStats.i_max,   ringStats.i_avg);
+    addStats("SOC", ringStats.soc_min, ringStats.soc_max, ringStats.soc_avg);
+    addStats("PW",  ringStats.pw_min,  ringStats.pw_max,  ringStats.pw_avg);
+    addStats("VS",  ringStats.vs_min,  ringStats.vs_max,  ringStats.vs_avg);
+
+    JsonObject co2 = doc["CO2"].to<JsonObject>();
+    co2["min"] = ringStats.co2_min;
+    co2["max"] = ringStats.co2_max;
+    co2["avg"] = ringStats.co2_avg;
+
+    String out;
+    serializeJson(doc, out);
+    req->send(200, "application/json", out);
+}
+
 //anzeigen verzeichnisinhalt
 static void handleSDList(AsyncWebServerRequest *req)
 {
@@ -207,37 +253,13 @@ static void handleSDUpload(AsyncWebServerRequest* req, String filename, size_t i
 }
 
 
+//alle routen für den server, aus setup rufen 
+void addRoutes()
+{
+    server.on("/api/stats", HTTP_GET, [](AsyncWebServerRequest *req)
+        {    handleStats(req);  });
 
-//normal setup
-
-void setup() {
-    Serial.begin(115200);
-    
-    if (!LittleFS.begin(true))
-        Serial.println("LittleFS FEHLER");
-    else
-        Serial.println("LittleFS OK");
-    
-    
-    appConfigLoad();
-    Serial.println("AppConfig OK");
-        
-    wifiSetup();
-    Serial.println("WiFi OK");
-    // Auf NTP warten – max 5 Sekunden
-    uint32_t ntpStart = millis();
-    while (!wifiTimeValid() && millis() - ntpStart < 5000)
-        delay(100);
-    Serial.printf("NTP: %s\n", wifiTimeValid() ? "sync" : "kein sync");
-
-    //wledSetup();
-    Serial.println("WLED noch zu tun ");   
-
-    ElegantOTA.begin(&server);
-    //routen für die api
-
-    //history darstellen 
-    
+    //history darstellen     
     server.on("/api/history", HTTP_GET, [](AsyncWebServerRequest *req)
     {
         String from   = req->hasParam("from")   ? req->getParam("from")->value()   : "";
@@ -303,12 +325,44 @@ void setup() {
 
     server.onNotFound([](AsyncWebServerRequest *req)
         { req->send(404, "application/json", "{\"error\":\"nicht gefunden\"}"); });
+}
+
+//normal setup
+
+void setup() {
+    Serial.begin(115200);
+    
+    if (!LittleFS.begin(true))
+        Serial.println("LittleFS FEHLER");
+    else
+        Serial.println("LittleFS OK");
+    
+    
+    appConfigLoad();
+    Serial.println("AppConfig OK");
+        
+    wifiSetup();
+    Serial.println("WiFi OK");
+    // Auf NTP warten – max 5 Sekunden
+    uint32_t ntpStart = millis();
+    while (!wifiTimeValid() && millis() - ntpStart < 5000)
+        delay(100);
+    Serial.printf("NTP: %s\n", wifiTimeValid() ? "sync" : "kein sync");
+
+    //wledSetup();
+    Serial.println("WLED noch zu tun ");   
+
+    ElegantOTA.begin(&server);
 
 
     esp_task_wdt_init(30, true); //etwas mehr zeit 
-
-    server.begin();
+    //routen für die api
+    addRoutes();
+    
+    server.begin(); //server starten 
     Serial.println("Server OK");
+
+    sensorPollSetup(); //fuer die stats nötig
 
     sdSetup();
     Serial.println("SD OK");
@@ -324,7 +378,7 @@ void setup() {
     lv_display_set_rotation(display, LV_DISPLAY_ROTATION_0);
     
     uiMainSetup();
-    
+    sdFillRingBuffer(48); //ringbuffer füllen, falls aktuelle zeiten da. 
     logPrintf("PSRAM: %lu bytes\n", (unsigned long)ESP.getPsramSize());
     logPrintln("Setup ist durch");    
 }
@@ -349,10 +403,11 @@ void loop() {
    
     sdLoop();
     sensorPollLoop();
-    uiHistoryLoop();
+    //uiHistoryLoop(); //nur noch für browser, das machen wir nicht mehr im display
     //wledLoop();
 
     // UI alle 2 Sekunden aktualisieren            
-    uiSensorenUpdate();        
+    uiSensorenUpdate();  
+    uiDetailsUpdate();
     
 }

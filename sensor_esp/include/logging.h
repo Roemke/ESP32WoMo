@@ -10,7 +10,7 @@
 
 extern char    logBuffer[LOG_BUFFER_SIZE][LOG_LINE_LENGTH];
 extern uint8_t logIndex; // nächste Schreibposition
-extern uint8_t logCount; // aktuell befüllte Zeilen
+extern uint32_t logCount; // aktuell befüllte Zeilen
 
 void logPrintln(const char   *text);
 void logPrintln(const String &text);

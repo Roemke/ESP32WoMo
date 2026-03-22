@@ -3,7 +3,7 @@
 
 char    logBuffer[LOG_BUFFER_SIZE][LOG_LINE_LENGTH];
 uint8_t logIndex = 0;
-uint8_t logCount = 0;
+uint32_t logCount = 0;
 
 // ----------------------------------------------------------------
 // Interne Hilfsfunktion: eine Zeile in den Ringpuffer schreiben
@@ -12,9 +12,8 @@ static void bufferAdd(const char *line)
 {
     strncpy(logBuffer[logIndex], line, LOG_LINE_LENGTH - 1);
     logBuffer[logIndex][LOG_LINE_LENGTH - 1] = '\0';
-    logIndex = (logIndex + 1) % LOG_BUFFER_SIZE;
-    if (logCount < LOG_BUFFER_SIZE)
-        logCount++;
+    logIndex = (logIndex + 1) % LOG_BUFFER_SIZE;    
+    logCount++;
 }
 
 // ----------------------------------------------------------------

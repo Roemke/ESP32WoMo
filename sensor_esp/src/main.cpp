@@ -39,6 +39,7 @@ String buildDataJson(uint8_t from)
 
     // Log-Zeilen ab 'from' senden
     JsonArray logs = doc["log"].to<JsonArray>();
+    //logCount aus logging.h
     for (uint8_t i = from; i < logCount; i++)
     {
         uint8_t idx = (logIndex + LOG_BUFFER_SIZE - logCount + i) % LOG_BUFFER_SIZE;

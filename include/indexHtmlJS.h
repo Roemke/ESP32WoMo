@@ -23,7 +23,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 <style>
   body {
     font-family: Arial, sans-serif;
-    font-size: 1.4em;
+    font-size: 1.2em;
     margin: 0; padding: 10px;
     background: #1a1a2e;
     color: #eeeeff;
@@ -48,6 +48,8 @@ const char index_html[] PROGMEM = R"rawliteral(
     border-radius: 8px; padding: 12px 20px;
     min-width: 300px; flex: 1;
   }
+  /* ---- für die Statistiken --- */
+  tr.alt { background: #1a2a4e; }
 
   /* ---- Key-Value Zeilen ---- */
   .kv { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
@@ -164,6 +166,37 @@ function openTab(evt, name) {
   document.getElementById(name).style.display = 'block';
   evt.currentTarget.classList.add('active');
 }
+
+// Statistiken laden und setzen 
+async function loadStats() {
+  const hours = getVal('statsHours');
+  try {
+    const r = await fetch('/api/stats?hours=' + hours);
+    const d = await r.json();
+    if (!d.valid) return;
+
+    const s = (key, suffix, dec) => {
+      setText('st-' + key + '-min', d[key.toUpperCase()].min.toFixed(dec) + suffix);
+      setText('st-' + key + '-max', d[key.toUpperCase()].max.toFixed(dec) + suffix);
+      setText('st-' + key + '-avg', d[key.toUpperCase()].avg.toFixed(dec) + suffix);
+    };
+
+    s('t',   ' °C', 1);
+    s('h',   ' %%',  1);
+    s('p',   ' hPa', 1);
+    s('v',   ' V',  2);
+    s('i',   ' A',  2);
+    s('soc', ' %%',  1);
+    s('pw',  ' W',  1);
+    s('vs',  ' V',  2);
+
+    // CO2 separat – int
+    setText('st-co2-min', d.CO2.min + ' ppm');
+    setText('st-co2-max', d.CO2.max + ' ppm');
+    setText('st-co2-avg', d.CO2.avg + ' ppm');
+
+  } catch(e) {}
+}  
 
 // ================================================================
 // Polling – alle 5 Sekunden /api/data abrufen
@@ -371,7 +404,9 @@ window.addEventListener('load', () => {
     document.getElementById('ip-fields').style.display = 'block';
   initDatepickers();
   poll();
-  setInterval(poll, 5000);
+  setInterval(poll, 2000);
+  loadStats();
+  setInterval(loadStats, 2000); // alle 2 Sekunden
 });
 </script>
 </head>
@@ -421,6 +456,68 @@ window.addEventListener('load', () => {
       <div class="kv"><label>CO2:</label>        <span class="badge neutral" id="valCO2">---</span></div>
     </div>
 
+  </div>
+  <!-- Stats unterhalb der Sensordaten -->
+  <div style="margin-top:16px">
+    <div class="status-box">
+      <h2>Statistik &nbsp;
+        <span style="font-size:0.7em;color:#8888bb">letzte</span>
+        <select id="statsHours" onchange="loadStats()" 
+                style="background:#0d0d1a;color:#eeeeff;border:1px solid #3a3a8e;
+                      padding:3px;border-radius:4px;font-size:0.8em">
+          <option value="1">1h</option>
+          <option value="4">4h</option>
+          <option value="8">8h</option>
+          <option value="12" selected>12h</option>
+          <option value="16">16h</option>
+          <option value="24">24h</option>
+          <option value="48">48h</option>
+        </select>
+      </h2>
+      <table style="width:100%;border-collapse:collapse;font-size:0.9em">
+        <tr style="color:#8888bb">
+          <td></td><td style="text-align:right">Min</td>
+          <td style="text-align:right">Max</td>
+          <td style="text-align:right">Avg</td>
+        </tr>
+        <tr><td>Temperatur</td>
+          <td style="text-align:right" id="st-t-min">-</td>
+          <td style="text-align:right" id="st-t-max">-</td>
+          <td style="text-align:right" id="st-t-avg">-</td></tr>
+        <tr class="alt"><td>Feuchte</td>
+          <td style="text-align:right" id="st-h-min">-</td>
+          <td style="text-align:right" id="st-h-max">-</td>
+          <td style="text-align:right" id="st-h-avg">-</td></tr>
+        <tr><td>Luftdruck</td>
+          <td style="text-align:right" id="st-p-min">-</td>
+          <td style="text-align:right" id="st-p-max">-</td>
+          <td style="text-align:right" id="st-p-avg">-</td></tr>
+        <tr class="alt"><td>CO2</td>
+          <td style="text-align:right" id="st-co2-min">-</td>
+          <td style="text-align:right" id="st-co2-max">-</td>
+          <td style="text-align:right" id="st-co2-avg">-</td></tr>
+        <tr><td>Spannung</td>
+          <td style="text-align:right" id="st-v-min">-</td>
+          <td style="text-align:right" id="st-v-max">-</td>
+          <td style="text-align:right" id="st-v-avg">-</td></tr>
+        <tr class="alt"><td>Strom</td>
+          <td style="text-align:right" id="st-i-min">-</td>
+          <td style="text-align:right" id="st-i-max">-</td>
+          <td style="text-align:right" id="st-i-avg">-</td></tr>
+        <tr><td>SoC</td>
+          <td style="text-align:right" id="st-soc-min">-</td>
+          <td style="text-align:right" id="st-soc-max">-</td>
+          <td style="text-align:right" id="st-soc-avg">-</td></tr>
+        <tr class="alt"><td>Leistung</td>
+          <td style="text-align:right" id="st-pw-min">-</td>
+          <td style="text-align:right" id="st-pw-max">-</td>
+          <td style="text-align:right" id="st-pw-avg">-</td></tr>
+        <tr><td>Starter</td>
+          <td style="text-align:right" id="st-vs-min">-</td>
+          <td style="text-align:right" id="st-vs-max">-</td>
+          <td style="text-align:right" id="st-vs-avg">-</td></tr>
+      </table>
+    </div>
   </div>
 </div>
 

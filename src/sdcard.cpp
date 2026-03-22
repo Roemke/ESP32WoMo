@@ -331,7 +331,7 @@ namespace
 bool sdSetup()
 {
     //Datenspeicher
-    s_historyBuffer = (char*)ps_malloc(2 * 1024 * 1024);
+    s_historyBuffer = (char*)ps_malloc(512 * 1024);
     if (!s_historyBuffer)
         logPrintln("SD: PSRAM Buffer FEHLER");
     else
@@ -393,7 +393,7 @@ void sdGetHistoryStream(const String &from, const String &to, int points, Print 
         (unsigned long)ESP.getFreeHeap(), (unsigned long)ESP.getFreePsram());
 }
 
-// Für Display – in PSRAM Buffer
+// Für Display – in PSRAM Buffer //werden wir nicht mehr brauchen, lasse charts im displsay
 const char* sdGetHistoryBuffer(const String &from, const String &to, int points)
 {
     if (!ready || !s_historyBuffer) return "{\"error\":\"SD nicht bereit\"}";
@@ -412,4 +412,67 @@ const char* sdGetHistoryBuffer(const String &from, const String &to, int points)
     BufferPrint bp(s_historyBuffer, 2*1024*1024);
     sdGetHistoryImpl(from, to, points, bp);
     return s_historyBuffer;
+}
+
+void sdFillRingBuffer(uint32_t hours)
+{
+    if (!ready || !ringBuffer) return;
+
+    time_t tsTo   = time(nullptr);
+    time_t tsFrom = tsTo - hours * 3600;
+    int reps = SD_LOG_INTERVAL_MS / RING_INTERVAL_MS; // = 30
+
+    logPrintf("sdFillRingBuffer: lade letzte %lu Stunden\n", hours);
+
+    time_t day = tsFrom;
+    while (day <= tsTo)
+    {
+        struct tm t;
+        localtime_r(&day, &t);
+        char path[32];
+        strftime(path, sizeof(path), "/%Y/%Y-%m-%d.csv", &t);
+
+        if (SD.exists(path))
+        {
+            File f = SD.open(path, FILE_READ);
+            if (f)
+            {
+                char tmp[32];
+                f.readBytesUntil('\n', tmp, sizeof(tmp)); // Header
+                char line[160];
+                while (f.available())
+                {
+                    size_t len = f.readBytesUntil('\n', line, sizeof(line)-1);
+                    if (len == 0) continue;
+                    line[len] = 0;
+                    if (line[len-1] == '\r') line[--len] = 0;
+                    if (len == 0) continue;
+
+                    CsvRow row = parseLine(line);
+                    if (!row.valid || row.ts < tsFrom || row.ts > tsTo) continue;
+
+                    for (int rep = 0; rep < reps; rep++) //reps ist bei standarddefines auf 30 
+                    {
+                        RingEntry &e = ringBuffer[ringHead];
+                        e.T   = row.T_C;
+                        e.H   = row.H_pct;
+                        e.P   = row.P_hPa;
+                        e.CO2 = row.CO2;
+                        e.V   = row.V;
+                        e.I   = row.I;
+                        e.SOC = row.SOC;
+                        e.PW  = row.P_W;
+                        e.VS  = row.VS;
+                        ringHead = (ringHead + 1) % RING_MAX_ENTRIES;
+                        if (ringCount < RING_MAX_ENTRIES) ringCount++;
+                    }
+                    
+                }
+                f.close();
+                esp_task_wdt_reset();
+            }
+        }
+        day += 86400;
+    }
+    logPrintf("sdFillRingBuffer: %lu Einträge geladen\n", ringCount);
 }

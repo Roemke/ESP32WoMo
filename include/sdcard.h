@@ -21,3 +21,6 @@ String  sdGetStatus();  // freier Speicher etc. als JSON
 //history kram 
 void        sdGetHistoryStream(const String &from, const String &to, int points, Print &output);
 const char* sdGetHistoryBuffer(const String &from, const String &to, int points);
+
+//beim starten prüfen, ob ich etwas in den ringbuffer schieben kann. 
+void sdFillRingBuffer(uint32_t hours);
