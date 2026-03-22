@@ -19,7 +19,6 @@
 //#include "ui_history.h" ist raus 
 #include <SD.h> //für dateioperationen per webserver, hat logisch nichts mit sdcard.h zu tun.
 #include "ui_details.h"
-#include "victronble.h"
 
 
 AsyncWebServer server(80);
@@ -39,8 +38,6 @@ String processor(const String& var)
     if (var == "SENSOR_ESP_IP")   return String(appConfig.sensor_esp_ip);
     if (var == "WLED_INNEN_IP")   return String(appConfig.wled_innen_ip);
     if (var == "WLED_AUSSEN_IP")  return String(appConfig.wled_aussen_ip);
-    if (var == "BMV_MAC")     return String(appConfig.bmv_mac);
-    if (var == "BMV_BINDKEY") return String(appConfig.bmv_bindkey);
     return "";
 }
 
@@ -122,10 +119,6 @@ void handleAppConfigPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, 
         strlcpy(appConfig.wled_innen_ip,  doc["wled_innen_ip"],  sizeof(appConfig.wled_innen_ip));
     if (doc["wled_aussen_ip"].is<const char*>())
         strlcpy(appConfig.wled_aussen_ip, doc["wled_aussen_ip"], sizeof(appConfig.wled_aussen_ip));
-    if (doc["bmv_mac"].is<const char*>())
-        strlcpy(appConfig.bmv_mac,     doc["bmv_mac"],     sizeof(appConfig.bmv_mac));
-    if (doc["bmv_bindkey"].is<const char*>())
-        strlcpy(appConfig.bmv_bindkey, doc["bmv_bindkey"], sizeof(appConfig.bmv_bindkey));        
     appConfigSave();
     req->send(200, "application/json", "{\"ok\":true}");
     // kein Neustart nötig – IPs werden beim nächsten Poll aktiv
@@ -197,10 +190,16 @@ void handleStats(AsyncWebServerRequest *req)
     addStats("PW",  ringStats.pw_min,  ringStats.pw_max,  ringStats.pw_avg);
     addStats("VS",  ringStats.vs_min,  ringStats.vs_max,  ringStats.vs_avg);
 
-    JsonObject co2 = doc["CO2"].to<JsonObject>();
-    co2["min"] = ringStats.co2_min;
-    co2["max"] = ringStats.co2_max;
-    co2["avg"] = ringStats.co2_avg;
+    addStats("CO2", ringStats.co2_min, ringStats.co2_max, ringStats.co2_avg);
+
+    addStats("MPPT1_V",  ringStats.mppt1_v_min,  ringStats.mppt1_v_max,  ringStats.mppt1_v_avg);
+    addStats("MPPT1_I",  ringStats.mppt1_i_min,  ringStats.mppt1_i_max,  ringStats.mppt1_i_avg);
+    addStats("MPPT1_PV", ringStats.mppt1_pv_min, ringStats.mppt1_pv_max, ringStats.mppt1_pv_avg);
+    addStats("MPPT2_V",  ringStats.mppt2_v_min,  ringStats.mppt2_v_max,  ringStats.mppt2_v_avg);
+    addStats("MPPT2_I",  ringStats.mppt2_i_min,  ringStats.mppt2_i_max,  ringStats.mppt2_i_avg);
+    addStats("MPPT2_PV", ringStats.mppt2_pv_min, ringStats.mppt2_pv_max, ringStats.mppt2_pv_avg);
+
+    
 
     String out;
     serializeJson(doc, out);
@@ -374,7 +373,6 @@ void setup() {
     Serial.println("AppConfig OK");
 
     Serial.printf("Heap vor BLE: %lu\n", ESP.getFreeHeap());
-    victronBleSetup();
     Serial.printf("Heap nach BLE: %lu\n", ESP.getFreeHeap());
 
         
@@ -444,7 +442,6 @@ void loop() {
     lv_timer_handler();
     
    
-    victronBleLoop();
     sensorPollLoop();
     sdLoop();
     

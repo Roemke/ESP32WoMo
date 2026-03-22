@@ -44,10 +44,17 @@ struct RingStats {
     float soc_min,soc_max,soc_avg;
     float pw_min, pw_max, pw_avg;
     float vs_min, vs_max, vs_avg;
-    uint32_t hours; // für welchen Zeitraum
+    // MPPT1
+    float mppt1_v_min,  mppt1_v_max,  mppt1_v_avg;
+    float mppt1_i_min,  mppt1_i_max,  mppt1_i_avg;
+    float mppt1_pv_min, mppt1_pv_max, mppt1_pv_avg;
+    // MPPT2
+    float mppt2_v_min,  mppt2_v_max,  mppt2_v_avg;
+    float mppt2_i_min,  mppt2_i_max,  mppt2_i_avg;
+    float mppt2_pv_min, mppt2_pv_max, mppt2_pv_avg;
+    uint32_t hours;
     bool valid;
 };
-
 
 #define RING_INTERVAL_MS    2000
 #define RING_MAX_ENTRIES    86400  // 48h × 1800 Einträge/h

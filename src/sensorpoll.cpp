@@ -21,7 +21,8 @@ void calcRingStats(uint32_t hours)
     // Maximale Anzahl Einträge für den Zeitraum
     uint32_t maxEntries = (hours * 3600 * 1000) / RING_INTERVAL_MS;
     uint32_t entries    = min(ringCount, maxEntries);
-    uint32_t bme_cnt = 0, ve_cnt = 0;
+    
+    uint32_t bme_cnt = 0, ve_cnt = 0, mppt1_cnt = 0, mppt2_cnt = 0;
     
     // Startwerte
     uint32_t first = (ringHead + RING_MAX_ENTRIES - 1) % RING_MAX_ENTRIES;
@@ -36,11 +37,19 @@ void calcRingStats(uint32_t hours)
     ringStats.soc_min = ringStats.soc_max = f.SOC;
     ringStats.pw_min = ringStats.pw_max = f.PW;
     ringStats.vs_min = ringStats.vs_max = f.VS;
+    ringStats.mppt1_v_min  = ringStats.mppt1_v_max  = f.mppt1_V;
+    ringStats.mppt1_i_min  = ringStats.mppt1_i_max  = f.mppt1_I;
+    ringStats.mppt1_pv_min = ringStats.mppt1_pv_max = f.mppt1_PV;
+    ringStats.mppt2_v_min  = ringStats.mppt2_v_max  = f.mppt2_V;
+    ringStats.mppt2_i_min  = ringStats.mppt2_i_max  = f.mppt2_I;
+    ringStats.mppt2_pv_min = ringStats.mppt2_pv_max = f.mppt2_PV;
     
     // Rückwärts durch den Ringpuffer – neueste Einträge zuerst
     ringStats.t_avg = ringStats.h_avg = ringStats.p_avg = 0;
     ringStats.co2_avg = 0;
     ringStats.v_avg = ringStats.i_avg = ringStats.soc_avg = ringStats.pw_avg = ringStats.vs_avg = 0;
+    ringStats.mppt1_v_avg = ringStats.mppt1_i_avg = ringStats.mppt1_pv_avg = 0;
+    ringStats.mppt2_v_avg = ringStats.mppt2_i_avg = ringStats.mppt2_pv_avg = 0;
     
     for (uint32_t i = 0; i < entries; i++)
     {
@@ -91,6 +100,32 @@ void calcRingStats(uint32_t hours)
             ringStats.vs_max = max(ringStats.vs_max, e.VS);
             ringStats.vs_avg += e.VS;
         }
+        if (sensorData.mppt1_valid)
+        {
+            mppt1_cnt++;
+            ringStats.mppt1_v_min  = min(ringStats.mppt1_v_min,  e.mppt1_V);
+            ringStats.mppt1_v_max  = max(ringStats.mppt1_v_max,  e.mppt1_V);
+            ringStats.mppt1_v_avg  += e.mppt1_V;
+            ringStats.mppt1_i_min  = min(ringStats.mppt1_i_min,  e.mppt1_I);
+            ringStats.mppt1_i_max  = max(ringStats.mppt1_i_max,  e.mppt1_I);
+            ringStats.mppt1_i_avg  += e.mppt1_I;
+            ringStats.mppt1_pv_min = min(ringStats.mppt1_pv_min, e.mppt1_PV);
+            ringStats.mppt1_pv_max = max(ringStats.mppt1_pv_max, e.mppt1_PV);
+            ringStats.mppt1_pv_avg += e.mppt1_PV;
+        }
+        if (sensorData.mppt2_valid)
+        {
+            mppt2_cnt++;
+            ringStats.mppt2_v_min  = min(ringStats.mppt2_v_min,  e.mppt2_V);
+            ringStats.mppt2_v_max  = max(ringStats.mppt2_v_max,  e.mppt2_V);
+            ringStats.mppt2_v_avg  += e.mppt2_V;
+            ringStats.mppt2_i_min  = min(ringStats.mppt2_i_min,  e.mppt2_I);
+            ringStats.mppt2_i_max  = max(ringStats.mppt2_i_max,  e.mppt2_I);
+            ringStats.mppt2_i_avg  += e.mppt2_I;
+            ringStats.mppt2_pv_min = min(ringStats.mppt2_pv_min, e.mppt2_PV);
+            ringStats.mppt2_pv_max = max(ringStats.mppt2_pv_max, e.mppt2_PV);
+            ringStats.mppt2_pv_avg += e.mppt2_PV;
+        }
     }
 
     // Durchschnitt berechnen
@@ -114,7 +149,18 @@ void calcRingStats(uint32_t hours)
     }
     else 
         ringStats.v_avg = ringStats.i_avg = ringStats.soc_avg = ringStats.pw_avg = ringStats.vs_avg = 0;
-
+    if (mppt1_cnt > 0)
+    {
+        ringStats.mppt1_v_avg  /= mppt1_cnt;
+        ringStats.mppt1_i_avg  /= mppt1_cnt;
+        ringStats.mppt1_pv_avg /= mppt1_cnt;
+    }
+    if (mppt2_cnt > 0)
+    {
+        ringStats.mppt2_v_avg  /= mppt2_cnt;
+        ringStats.mppt2_i_avg  /= mppt2_cnt;
+        ringStats.mppt2_pv_avg /= mppt2_cnt;
+    }
 
     ringStats.hours = hours;
     ringStats.valid = true;

@@ -44,13 +44,6 @@ String buildDataJson(uint8_t from)
     doc["mppt2"]   = serialized(mppt2ToJson());     // MPPT2 via BLE
     doc["wifi"]    = wifiGetIP();
 
-    JsonArray logs = doc["log"].to<JsonArray>();
-    for (uint32_t i = from; i < logCount; i++)
-    {
-        uint8_t idx = (logIndex + LOG_BUFFER_SIZE - logCount + i) % LOG_BUFFER_SIZE;
-        logs.add(logBuffer[idx]);
-    }
-    doc["logCount"] = logCount;
 
     String out;
     serializeJson(doc, out);

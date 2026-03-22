@@ -107,7 +107,6 @@ async function poll() {
     const d = await r.json();
     console.log(JSON.stringify(d.bme));
     console.log("LogFrom is " + logFrom);
-    console.log(JSON.stringify(d.log));
     setText('statusIP',     d.wifi || '-');
     setText('statusUpdate', new Date().toLocaleTimeString());
 

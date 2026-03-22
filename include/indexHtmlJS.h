@@ -194,6 +194,25 @@ async function loadStats() {
     setText('st-co2-min', d.CO2.min + ' ppm');
     setText('st-co2-max', d.CO2.max + ' ppm');
     setText('st-co2-avg', d.CO2.avg + ' ppm');
+    
+    // MPPT1
+    if (d.MPPT1_V) {
+      setText('st-mppt1v-min',  d.MPPT1_V.min.toFixed(2)  + ' V');
+      setText('st-mppt1v-max',  d.MPPT1_V.max.toFixed(2)  + ' V');
+      setText('st-mppt1v-avg',  d.MPPT1_V.avg.toFixed(2)  + ' V');
+      setText('st-mppt1pv-min', d.MPPT1_PV.min.toFixed(1) + ' W');
+      setText('st-mppt1pv-max', d.MPPT1_PV.max.toFixed(1) + ' W');
+      setText('st-mppt1pv-avg', d.MPPT1_PV.avg.toFixed(1) + ' W');
+    }
+    // MPPT2
+    if (d.MPPT2_V) {
+      setText('st-mppt2v-min',  d.MPPT2_V.min.toFixed(2)  + ' V');
+      setText('st-mppt2v-max',  d.MPPT2_V.max.toFixed(2)  + ' V');
+      setText('st-mppt2v-avg',  d.MPPT2_V.avg.toFixed(2)  + ' V');
+      setText('st-mppt2pv-min', d.MPPT2_PV.min.toFixed(1) + ' W');
+      setText('st-mppt2pv-max', d.MPPT2_PV.max.toFixed(1) + ' W');
+      setText('st-mppt2pv-avg', d.MPPT2_PV.avg.toFixed(1) + ' W');
+    }
 
   } catch(e) {}
 }  
@@ -376,9 +395,7 @@ async function saveIPs() {
   const body = {
     sensor_esp_ip:  getVal('cfgSensorIP'),
     wled_innen_ip:  getVal('cfgWledInnen'),
-    wled_aussen_ip: getVal('cfgWledAussen'),    
-    bmv_mac:        getVal('cfgBmvMac'),
-    bmv_bindkey:    getVal('cfgBmvBindkey')
+    wled_aussen_ip: getVal('cfgWledAussen')
   };
   try {
     await fetch('/api/config', {
@@ -548,6 +565,22 @@ window.addEventListener('load', () => {
           <td style="text-align:right" id="st-vs-min">-</td>
           <td style="text-align:right" id="st-vs-max">-</td>
           <td style="text-align:right" id="st-vs-avg">-</td></tr>
+        <tr class="alt"><td>MPPT1 Spannung</td>
+          <td style="text-align:right" id="st-mppt1v-min">-</td>
+          <td style="text-align:right" id="st-mppt1v-max">-</td>
+          <td style="text-align:right" id="st-mppt1v-avg">-</td></tr>
+        <tr><td>MPPT1 Leistung</td>
+          <td style="text-align:right" id="st-mppt1pv-min">-</td>
+          <td style="text-align:right" id="st-mppt1pv-max">-</td>
+          <td style="text-align:right" id="st-mppt1pv-avg">-</td></tr>
+        <tr class="alt"><td>MPPT2 Spannung</td>
+          <td style="text-align:right" id="st-mppt2v-min">-</td>
+          <td style="text-align:right" id="st-mppt2v-max">-</td>
+          <td style="text-align:right" id="st-mppt2v-avg">-</td></tr>
+        <tr><td>MPPT2 Leistung</td>
+          <td style="text-align:right" id="st-mppt2pv-min">-</td>
+          <td style="text-align:right" id="st-mppt2pv-max">-</td>
+          <td style="text-align:right" id="st-mppt2pv-avg">-</td></tr>  
       </table>
     </div>
   </div>
@@ -611,9 +644,6 @@ window.addEventListener('load', () => {
   <div class="form-row"><label>Sensor-ESP IP</label>  <input type="text" id="cfgSensorIP"   value="%SENSOR_ESP_IP%"></div>
   <div class="form-row"><label>WLED Innen IP</label>  <input type="text" id="cfgWledInnen"  value="%WLED_INNEN_IP%"></div>
   <div class="form-row"><label>WLED Außen IP</label>  <input type="text" id="cfgWledAussen" value="%WLED_AUSSEN_IP%"></div>
-  <h2>Victron BMV712 (BLE)</h2>
-  <div class="form-row"><label>MAC-Adresse</label>    <input type="text" id="cfgBmvMac"     value="%BMV_MAC%"     placeholder="AA:BB:CC:DD:EE:FF"></div>
-  <div class="form-row"><label>Encryption Key</label> <input type="text" id="cfgBmvBindkey" value="%BMV_BINDKEY%" placeholder="32 hex Zeichen"></div>
   <button class="btn" onclick="saveIPs()">Speichern</button>
   <div class="infoField invisible" id="ipInfo">
     <strong>IPs gespeichert.</strong> Änderungen werden beim nächsten Poll aktiv.
