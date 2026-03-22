@@ -45,3 +45,6 @@
 // ---- Logging -----------------------------------------------
 #define LOG_BUFFER_SIZE     50
 #define LOG_LINE_LENGTH     128
+
+#define BMV_MAC_DEFAULT     ""
+#define BMV_BINDKEY_DEFAULT ""

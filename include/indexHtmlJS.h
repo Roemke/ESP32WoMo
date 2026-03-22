@@ -363,7 +363,9 @@ async function saveIPs() {
   const body = {
     sensor_esp_ip:  getVal('cfgSensorIP'),
     wled_innen_ip:  getVal('cfgWledInnen'),
-    wled_aussen_ip: getVal('cfgWledAussen')
+    wled_aussen_ip: getVal('cfgWledAussen'),    
+    bmv_mac:        getVal('cfgBmvMac'),
+    bmv_bindkey:    getVal('cfgBmvBindkey')
   };
   try {
     await fetch('/api/config', {
@@ -579,6 +581,9 @@ window.addEventListener('load', () => {
   <div class="form-row"><label>Sensor-ESP IP</label>  <input type="text" id="cfgSensorIP"   value="%SENSOR_ESP_IP%"></div>
   <div class="form-row"><label>WLED Innen IP</label>  <input type="text" id="cfgWledInnen"  value="%WLED_INNEN_IP%"></div>
   <div class="form-row"><label>WLED Außen IP</label>  <input type="text" id="cfgWledAussen" value="%WLED_AUSSEN_IP%"></div>
+  <h2>Victron BMV712 (BLE)</h2>
+  <div class="form-row"><label>MAC-Adresse</label>    <input type="text" id="cfgBmvMac"     value="%BMV_MAC%"     placeholder="AA:BB:CC:DD:EE:FF"></div>
+  <div class="form-row"><label>Encryption Key</label> <input type="text" id="cfgBmvBindkey" value="%BMV_BINDKEY%" placeholder="32 hex Zeichen"></div>
   <button class="btn" onclick="saveIPs()">Speichern</button>
   <div class="infoField invisible" id="ipInfo">
     <strong>IPs gespeichert.</strong> Änderungen werden beim nächsten Poll aktiv.

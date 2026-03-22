@@ -20,6 +20,10 @@ void appConfigLoad()
     strlcpy(appConfig.sensor_esp_ip,  doc["sensor_esp_ip"]  | SENSOR_ESP_IP_DEFAULT,  sizeof(appConfig.sensor_esp_ip));
     strlcpy(appConfig.wled_innen_ip,  doc["wled_innen_ip"]  | WLED_DEFAULT_INNEN_IP,  sizeof(appConfig.wled_innen_ip));
     strlcpy(appConfig.wled_aussen_ip, doc["wled_aussen_ip"] | WLED_DEFAULT_AUSSEN_IP, sizeof(appConfig.wled_aussen_ip));
+
+    strlcpy(appConfig.bmv_mac,     doc["bmv_mac"]     | BMV_MAC_DEFAULT,     sizeof(appConfig.bmv_mac));
+    strlcpy(appConfig.bmv_bindkey, doc["bmv_bindkey"] | BMV_BINDKEY_DEFAULT, sizeof(appConfig.bmv_bindkey));
+
 }
 
 void appConfigSave()
@@ -30,6 +34,9 @@ void appConfigSave()
     doc["sensor_esp_ip"]  = appConfig.sensor_esp_ip;
     doc["wled_innen_ip"]  = appConfig.wled_innen_ip;
     doc["wled_aussen_ip"] = appConfig.wled_aussen_ip;
+    doc["bmv_mac"]        = appConfig.bmv_mac;
+    doc["bmv_bindkey"]    = appConfig.bmv_bindkey;
+
     serializeJson(doc, f);
     f.close();
 }
@@ -40,6 +47,9 @@ String appConfigToJson()
     doc["sensor_esp_ip"]  = appConfig.sensor_esp_ip;
     doc["wled_innen_ip"]  = appConfig.wled_innen_ip;
     doc["wled_aussen_ip"] = appConfig.wled_aussen_ip;
+    doc["bmv_mac"]        = appConfig.bmv_mac;
+    doc["bmv_bindkey"]    = appConfig.bmv_bindkey;
+
     String out;
     serializeJson(doc, out);
     return out;

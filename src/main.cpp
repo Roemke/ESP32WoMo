@@ -19,6 +19,8 @@
 //#include "ui_history.h" ist raus 
 #include <SD.h> //für dateioperationen per webserver, hat logisch nichts mit sdcard.h zu tun.
 #include "ui_details.h"
+#include "victronble.h"
+
 
 AsyncWebServer server(80);
 static auto lv_last_tick = millis();
@@ -37,6 +39,8 @@ String processor(const String& var)
     if (var == "SENSOR_ESP_IP")   return String(appConfig.sensor_esp_ip);
     if (var == "WLED_INNEN_IP")   return String(appConfig.wled_innen_ip);
     if (var == "WLED_AUSSEN_IP")  return String(appConfig.wled_aussen_ip);
+    if (var == "BMV_MAC")     return String(appConfig.bmv_mac);
+    if (var == "BMV_BINDKEY") return String(appConfig.bmv_bindkey);
     return "";
 }
 
@@ -94,6 +98,10 @@ void handleAppConfigPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, 
         strlcpy(appConfig.wled_innen_ip,  doc["wled_innen_ip"],  sizeof(appConfig.wled_innen_ip));
     if (doc["wled_aussen_ip"].is<const char*>())
         strlcpy(appConfig.wled_aussen_ip, doc["wled_aussen_ip"], sizeof(appConfig.wled_aussen_ip));
+    if (doc["bmv_mac"].is<const char*>())
+        strlcpy(appConfig.bmv_mac,     doc["bmv_mac"],     sizeof(appConfig.bmv_mac));
+    if (doc["bmv_bindkey"].is<const char*>())
+        strlcpy(appConfig.bmv_bindkey, doc["bmv_bindkey"], sizeof(appConfig.bmv_bindkey));        
     appConfigSave();
     req->send(200, "application/json", "{\"ok\":true}");
     // kein Neustart nötig – IPs werden beim nächsten Poll aktiv
@@ -337,11 +345,18 @@ void setup() {
     else
         Serial.println("LittleFS OK");
     
-    
+    Serial.printf("Heap am Anfang: %lu\n", ESP.getFreeHeap());
     appConfigLoad();
     Serial.println("AppConfig OK");
+
+    Serial.printf("Heap vor BLE: %lu\n", ESP.getFreeHeap());
+    victronBleSetup();
+    Serial.printf("Heap nach BLE: %lu\n", ESP.getFreeHeap());
+
         
     wifiSetup();
+    Serial.printf("Heap nach wifi: %lu\n", ESP.getFreeHeap());
+
     Serial.println("WiFi OK");
     // Auf NTP warten – max 5 Sekunden
     uint32_t ntpStart = millis();
@@ -363,6 +378,7 @@ void setup() {
     Serial.println("Server OK");
 
     sensorPollSetup(); //fuer die stats nötig
+    Serial.printf("Heap nach Pollsetup: %lu\n", ESP.getFreeHeap());
 
     sdSetup();
     Serial.println("SD OK");
@@ -378,7 +394,10 @@ void setup() {
     lv_display_set_rotation(display, LV_DISPLAY_ROTATION_0);
     
     uiMainSetup();
+    Serial.printf("Heap nach uimain: %lu\n", ESP.getFreeHeap());
+
     sdFillRingBuffer(48); //ringbuffer füllen, falls aktuelle zeiten da. 
+    Serial.printf("Heap nach ringbuffer: %lu\n", ESP.getFreeHeap());
     logPrintf("PSRAM: %lu bytes\n", (unsigned long)ESP.getPsramSize());
     logPrintln("Setup ist durch");    
 }
@@ -401,8 +420,10 @@ void loop() {
     lv_timer_handler();
     
    
-    sdLoop();
+    victronBleLoop();
     sensorPollLoop();
+    sdLoop();
+    
     //uiHistoryLoop(); //nur noch für browser, das machen wir nicht mehr im display
     //wledLoop();
 
