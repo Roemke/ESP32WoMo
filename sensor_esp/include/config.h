@@ -7,8 +7,14 @@
 // ============================================================
 
 // ---- BME280 (I²C) ------------------------------------------
-#define BME280_SDA_PIN_DEFAULT      33
-#define BME280_SCL_PIN_DEFAULT      35
+#ifdef ARDUINO_LOLIN_S2_MINI
+    #define BME280_SDA_PIN_DEFAULT  33
+    #define BME280_SCL_PIN_DEFAULT  35
+#else
+    // DevKitC und andere ESP32-S3
+    #define BME280_SDA_PIN_DEFAULT  8
+    #define BME280_SCL_PIN_DEFAULT  9
+#endif
 #define BME280_I2C_ADDR_DEFAULT     0x76
 #define BME280_INTERVAL_MS_DEFAULT  10000
 

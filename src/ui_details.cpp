@@ -27,7 +27,13 @@ static uint32_t   s_hours    = 12;
 #define ROW_SOC     7
 #define ROW_POWER   8
 #define ROW_VS      9
-#define ROW_COUNT   10
+
+
+#define ROW_MPPT1_V   10
+#define ROW_MPPT1_PV  11
+#define ROW_MPPT2_V   12
+#define ROW_MPPT2_PV  13
+#define ROW_COUNT     14
 
 // ----------------------------------------------------------------
 // Hilfsfunktion: Zelle setzen
@@ -131,6 +137,10 @@ void uiDetailsSetup(lv_obj_t *tab)
     setCell(ROW_SOC,   COL_NAME, "SoC");
     setCell(ROW_POWER, COL_NAME, "Leistung");
     setCell(ROW_VS,    COL_NAME, "Starter");
+    setCell(ROW_MPPT1_V,  COL_NAME, "MPPT1 Span.");
+    setCell(ROW_MPPT1_PV, COL_NAME, "MPPT1 PV");
+    setCell(ROW_MPPT2_V,  COL_NAME, "MPPT2 Span.");
+    setCell(ROW_MPPT2_PV, COL_NAME, "MPPT2 PV");
 
     // Header-Zeile stylen
     for (int col = 0; col < 5; col++)
@@ -169,7 +179,16 @@ void uiDetailsUpdate()
         setCellF(ROW_POWER, COL_ACTUAL, sensorData.power,           1, "W");
         setCellF(ROW_VS,    COL_ACTUAL, sensorData.voltage_starter, 2, "V");
     }
-
+    if (sensorData.mppt1_valid)
+    {
+        setCellF(ROW_MPPT1_V,  COL_ACTUAL, sensorData.mppt1_voltage,  2, "V");
+        setCellF(ROW_MPPT1_PV, COL_ACTUAL, sensorData.mppt1_pv_power, 1, "W");
+    }
+    if (sensorData.mppt2_valid)
+    {
+        setCellF(ROW_MPPT2_V,  COL_ACTUAL, sensorData.mppt2_voltage,  2, "V");
+        setCellF(ROW_MPPT2_PV, COL_ACTUAL, sensorData.mppt2_pv_power, 1, "W");
+    }    
     // Stats
     if (ringStats.valid)
     {
@@ -208,5 +227,17 @@ void uiDetailsUpdate()
         setCellF(ROW_VS,    COL_MIN, ringStats.vs_min,  2, "V");
         setCellF(ROW_VS,    COL_MAX, ringStats.vs_max,  2, "V");
         setCellF(ROW_VS,    COL_AVG, ringStats.vs_avg,  2, "V");
+        setCellF(ROW_MPPT1_V,  COL_MIN, ringStats.mppt1_v_min,  2, "V");
+        setCellF(ROW_MPPT1_V,  COL_MAX, ringStats.mppt1_v_max,  2, "V");
+        setCellF(ROW_MPPT1_V,  COL_AVG, ringStats.mppt1_v_avg,  2, "V");
+        setCellF(ROW_MPPT1_PV, COL_MIN, ringStats.mppt1_pv_min, 1, "W");
+        setCellF(ROW_MPPT1_PV, COL_MAX, ringStats.mppt1_pv_max, 1, "W");
+        setCellF(ROW_MPPT1_PV, COL_AVG, ringStats.mppt1_pv_avg, 1, "W");
+        setCellF(ROW_MPPT2_V,  COL_MIN, ringStats.mppt2_v_min,  2, "V");
+        setCellF(ROW_MPPT2_V,  COL_MAX, ringStats.mppt2_v_max,  2, "V");
+        setCellF(ROW_MPPT2_V,  COL_AVG, ringStats.mppt2_v_avg,  2, "V");
+        setCellF(ROW_MPPT2_PV, COL_MIN, ringStats.mppt2_pv_min, 1, "W");
+        setCellF(ROW_MPPT2_PV, COL_MAX, ringStats.mppt2_pv_max, 1, "W");
+        setCellF(ROW_MPPT2_PV, COL_AVG, ringStats.mppt2_pv_avg, 1, "W");
     }
 }

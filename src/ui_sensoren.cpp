@@ -17,6 +17,15 @@ static lv_obj_t *s_press   = nullptr;
 static lv_obj_t *s_co2     = nullptr;
 static lv_obj_t *s_ip      = nullptr;
 
+static lv_obj_t *s_mppt1_v   = nullptr;
+static lv_obj_t *s_mppt1_i   = nullptr;
+static lv_obj_t *s_mppt1_pv  = nullptr;
+static lv_obj_t *s_mppt1_y   = nullptr;
+static lv_obj_t *s_mppt2_v   = nullptr;
+static lv_obj_t *s_mppt2_i   = nullptr;
+static lv_obj_t *s_mppt2_pv  = nullptr;
+static lv_obj_t *s_mppt2_y   = nullptr;
+
 // ----------------------------------------------------------------
 // Hilfsfunktion: Panel erstellen
 // ----------------------------------------------------------------
@@ -75,8 +84,8 @@ void uiSensorenSetup(lv_obj_t *tab)
     lv_obj_set_style_bg_color(tab, lv_color_hex(0x1A1A2E), 0);
     lv_obj_set_style_bg_opa(tab, LV_OPA_COVER, 0);
     lv_obj_set_style_pad_all(tab, 4, 0);
-    lv_obj_clear_flag(tab, LV_OBJ_FLAG_SCROLLABLE);
-
+    //lv_obj_clear_flag(tab, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(tab, LV_OBJ_FLAG_SCROLLABLE);
     // Nutzbare Fläche: 800 × 440px (480px - 40px Tabs)
     // Links: Batterie 388×432, Rechts: Klima 388×432, Abstand 8px
 
@@ -109,6 +118,22 @@ void uiSensorenSetup(lv_obj_t *tab)
     lv_obj_set_style_text_color(s_ip, lv_color_hex(0x666688), 0);
     lv_obj_set_style_text_font(s_ip, &lv_font_montserrat_16, 0);
     lv_obj_align(s_ip, LV_ALIGN_BOTTOM_RIGHT, -10, -8);
+
+    // ---- MPPT1 Panel (links unten) ------------------------------
+    lv_obj_t *p_mppt1 = makePanel(tab, 0, 400, 388, 280);
+    makeTitle(p_mppt1, "Solar MPPT1");
+    s_mppt1_v  = makeRow(p_mppt1, "Spannung:",    row_start);
+    s_mppt1_i  = makeRow(p_mppt1, "Strom:",       row_start + row_step);
+    s_mppt1_pv = makeRow(p_mppt1, "PV Leistung:", row_start + row_step * 2);
+    s_mppt1_y  = makeRow(p_mppt1, "Ertrag heute:",row_start + row_step * 3);
+
+    // ---- MPPT2 Panel (rechts unten) -----------------------------
+    lv_obj_t *p_mppt2 = makePanel(tab, 404, 400, 388, 280);
+    makeTitle(p_mppt2, "Solar MPPT2");
+    s_mppt2_v  = makeRow(p_mppt2, "Spannung:",    row_start);
+    s_mppt2_i  = makeRow(p_mppt2, "Strom:",       row_start + row_step);
+    s_mppt2_pv = makeRow(p_mppt2, "PV Leistung:", row_start + row_step * 2);
+    s_mppt2_y  = makeRow(p_mppt2, "Ertrag heute:",row_start + row_step * 3);
 }
 
 // ================================================================
@@ -185,6 +210,46 @@ void uiSensorenUpdate()
     }
     else
         lv_label_set_text(s_co2, "---");
+
+    // ---- MPPT1 --------------------------------------------------
+    if (sensorData.mppt1_valid)
+    {
+        snprintf(buf, sizeof(buf), "%.2f V", sensorData.mppt1_voltage);
+        lv_label_set_text(s_mppt1_v, buf);
+        snprintf(buf, sizeof(buf), "%.2f A", sensorData.mppt1_current);
+        lv_label_set_text(s_mppt1_i, buf);
+        snprintf(buf, sizeof(buf), "%.1f W", sensorData.mppt1_pv_power);
+        lv_label_set_text(s_mppt1_pv, buf);
+        snprintf(buf, sizeof(buf), "%d Wh", sensorData.mppt1_yield_today);
+        lv_label_set_text(s_mppt1_y, buf);
+    }
+    else
+    {
+        lv_label_set_text(s_mppt1_v,  "---");
+        lv_label_set_text(s_mppt1_i,  "---");
+        lv_label_set_text(s_mppt1_pv, "---");
+        lv_label_set_text(s_mppt1_y,  "---");
+    }
+
+    // ---- MPPT2 --------------------------------------------------
+    if (sensorData.mppt2_valid)
+    {
+        snprintf(buf, sizeof(buf), "%.2f V", sensorData.mppt2_voltage);
+        lv_label_set_text(s_mppt2_v, buf);
+        snprintf(buf, sizeof(buf), "%.2f A", sensorData.mppt2_current);
+        lv_label_set_text(s_mppt2_i, buf);
+        snprintf(buf, sizeof(buf), "%.1f W", sensorData.mppt2_pv_power);
+        lv_label_set_text(s_mppt2_pv, buf);
+        snprintf(buf, sizeof(buf), "%d Wh", sensorData.mppt2_yield_today);
+        lv_label_set_text(s_mppt2_y, buf);
+    }
+    else
+    {
+        lv_label_set_text(s_mppt2_v,  "---");
+        lv_label_set_text(s_mppt2_i,  "---");
+        lv_label_set_text(s_mppt2_pv, "---");
+        lv_label_set_text(s_mppt2_y,  "---");
+    }    
 }
 
 // ----------------------------------------------------------------

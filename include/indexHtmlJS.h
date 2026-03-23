@@ -469,7 +469,13 @@ window.addEventListener('load', () => {
 <!-- ============================================================ -->
 <div id="status" class="tabcontent">
   <div class="status-grid">
-
+   <div class="status-box">
+      <h2>Klima</h2>
+      <div class="kv"><label>Temperatur:</label> <span class="badge neutral" id="valTemp">---</span></div>
+      <div class="kv"><label>Feuchte:</label>    <span class="badge neutral" id="valHum">---</span></div>
+      <div class="kv"><label>Luftdruck:</label>  <span class="badge neutral" id="valPress">---</span></div>
+      <div class="kv"><label>CO2:</label>        <span class="badge neutral" id="valCO2">---</span></div>
+    </div>
     <div class="status-box">
       <h2>Batterie (BMV712)</h2>
       <div class="kv"><label>Spannung:</label>        <span class="badge neutral" id="valV">---</span></div>
@@ -496,15 +502,7 @@ window.addEventListener('load', () => {
       <div class="kv"><label>Leistung PV:</label> <span class="badge neutral" id="mppt2PV">---</span></div>
       <div class="kv"><label>Ertrag heute:</label><span class="badge neutral" id="mppt2Y">---</span></div>
     </div>
-
-    <div class="status-box">
-      <h2>Klima</h2>
-      <div class="kv"><label>Temperatur:</label> <span class="badge neutral" id="valTemp">---</span></div>
-      <div class="kv"><label>Feuchte:</label>    <span class="badge neutral" id="valHum">---</span></div>
-      <div class="kv"><label>Luftdruck:</label>  <span class="badge neutral" id="valPress">---</span></div>
-      <div class="kv"><label>CO2:</label>        <span class="badge neutral" id="valCO2">---</span></div>
-    </div>
-
+ 
   </div>
   <!-- Stats unterhalb der Sensordaten -->
   <div style="margin-top:16px">

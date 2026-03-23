@@ -170,6 +170,7 @@ void calcRingStats(uint32_t hours)
 void sensorPollSetup()
 {
     ringBuffer = (RingEntry*)ps_malloc(RING_MAX_ENTRIES * sizeof(RingEntry));
+    memset(ringBuffer, 0, RING_MAX_ENTRIES * sizeof(RingEntry)); 
     if (!ringBuffer)
         logPrintln("SensorPoll: Ringpuffer FEHLER");
     else
@@ -188,8 +189,8 @@ void sensorPollLoop()
     HTTPClient http;
     String url = "http://" + String(appConfig.sensor_esp_ip) + "/api/data";
     http.begin(url);
-    http.setTimeout(3000);
-
+    http.setTimeout(2000);
+    http.setConnectTimeout(2000);
     int code = http.GET();
     if (code != 200)
     {
