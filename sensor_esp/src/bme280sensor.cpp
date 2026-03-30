@@ -26,7 +26,13 @@ namespace
 bool bme280Setup()
 {
     Wire.begin(sensorConfig.bme_sda, sensorConfig.bme_scl);
-    Wire.setTimeout(1000); 
+    Wire.setTimeout(1000);
+    for (uint8_t addr = 1; addr < 127; addr++)
+{
+    Wire.beginTransmission(addr);
+    if (Wire.endTransmission() == 0)
+        logPrintf("I2C Gerät gefunden auf 0x%02X\n", addr);
+} 
     if (!bme.begin(sensorConfig.bme_addr, &Wire))
     {
         uint8_t altAddr = (sensorConfig.bme_addr == 0x76) ? 0x77 : 0x76;        

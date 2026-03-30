@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <LittleFS.h>
+#include "esp_log.h"
 #include "logging.h"
 #include "wifi.h"
 #include "sensorconfig.h"
@@ -10,6 +11,7 @@
 #include "logging.h"
 #include "victronble.h"
 #include "bleconfig.h"
+#include "scd41sensor.h"
 
 AsyncWebServer server(HTTP_PORT);
 
@@ -35,11 +37,13 @@ String processor(const String& var)
 
 
 //funktionen für die api-calls
-String buildDataJson(uint8_t from)
+String buildDataJson()
 {
     JsonDocument doc;
-    doc["bme"]     = serialized(bme280ToJson());
-    doc["vedirect"] = serialized(bmvToJson());      // BMV712 via BLE
+    doc["bme"]     = serialized(bme280ToJson());    
+    doc["co2"]   = serialized(scd41ToJson());     // nur CO2 für Display
+    doc["scd41"]    = serialized(scd41ToJsonFull()); //alle für webinterface
+    doc["vedirect"] = serialized(bmvToJson());      // BMV712 via BLE    
     doc["mppt1"]   = serialized(mppt1ToJson());     // MPPT1 via BLE
     doc["mppt2"]   = serialized(mppt2ToJson());     // MPPT2 via BLE
     doc["wifi"]    = wifiGetIP();
@@ -49,7 +53,22 @@ String buildDataJson(uint8_t from)
     serializeJson(doc, out);
     return out;
 }
-
+String buildLogJson(uint32_t from)
+{
+    JsonDocument doc;
+    uint32_t maxLogs = 10;
+    uint32_t start = (logCount > from + maxLogs) ? logCount - maxLogs : from;
+    JsonArray logs = doc["log"].to<JsonArray>();
+    for (uint32_t i = start; i < logCount; i++)
+    {
+        uint32_t idx = (logIndex + LOG_BUFFER_SIZE - logCount + i) % LOG_BUFFER_SIZE;
+        logs.add(logBuffer[idx]);
+    }
+    doc["logCount"] = logCount;
+    String out;
+    serializeJson(doc, out);
+    return out;
+}
 
 void handleConfigPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, size_t, size_t)
 {
@@ -142,14 +161,17 @@ void addRoutes()
             ESP.restart();
         }
     );    
-
+    server.on("/api/log", HTTP_GET, [](AsyncWebServerRequest *req)
+    {
+        uint32_t from = 0;
+        if (req->hasParam("logFrom"))
+            from = req->getParam("logFrom")->value().toInt();
+        req->send(200, "application/json", buildLogJson(from));
+    });
     // Alle Sensordaten
     server.on("/api/data", HTTP_GET, [](AsyncWebServerRequest *req)
     {
-        uint8_t from = 0;
-        if (req->hasParam("logFrom"))
-            from = (uint8_t)req->getParam("logFrom")->value().toInt();
-        req->send(200, "application/json", buildDataJson(from));
+        req->send(200, "application/json", buildDataJson());
     });
 
     server.on("/api/config", HTTP_GET,  [](AsyncWebServerRequest *req)
@@ -179,31 +201,37 @@ void addRoutes()
 void setup() {
     Serial.begin(115200);
     delay(5000);
-    Serial.println("=== Sensor ESP startet ===");
-    
+    ESP_LOGI("MAIN","start setup");
     if (!LittleFS.begin(true))
-        Serial.println("LittleFS FEHLER");
+        ESP_LOGI("MAIN","LittleFS FEHLER");
     else
-        Serial.println("LittleFS OK");
+        ESP_LOGI("MAIN","LittleFS OK");
 
     sensorConfigLoad();
-    Serial.println("Config OK");
+    ESP_LOGI("MAIN","Config OK");
 
     bleConfigLoad();
-    Serial.println("BleConfig OK");
+    ESP_LOGI("MAIN","BleConfig OK");
     
 
     wifiSetup();
-    Serial.println("WiFi OK");
+    ESP_LOGI("MAIN","WiFi OK");
 
     
     if (!bme280Setup())
-        Serial.println("BME280 FEHLER");
+        ESP_LOGI("MAIN","BME280 FEHLER");
     else
-        Serial.println("BME280 OK");
-    
+        ESP_LOGI("MAIN","BME280 OK");
+
+    if (!scd41Setup())
+        ESP_LOGI("MAIN","SCD41 FEHLER");
+    else
+        ESP_LOGI("MAIN","SCD41 OK");
+
+    ESP_LOGI("main","Heap vor BLE: %lu\n", ESP.getFreeHeap());
     victronBleSetup();
-    Serial.println("VictronBLE OK");    
+    ESP_LOGI("main","Heap nach BLE: %lu\n", ESP.getFreeHeap());
+    ESP_LOGI("MAIN","VictronBLE OK");    
     
     // server routen setzen 
     addRoutes();
@@ -217,11 +245,13 @@ void setup() {
     });
 
     server.begin();
-    Serial.println("Server OK");    
+    ESP_LOGI("MAIN","Server OK");    
 }
 
 void loop() {
     bme280Loop();
+    scd41Loop();
+
     victronBleLoop();
     //Serial.println(bme280ToJson());
     //delay(1000);

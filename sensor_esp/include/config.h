@@ -19,7 +19,7 @@
 #define BME280_INTERVAL_MS_DEFAULT  10000
 
 // ---- VE.Direct (Victron BMV712) ----------------------------
-#define VEDIRECT_RX_PIN_DEFAULT  37
+#define VEDIRECT_RX_PIN_DEFAULT  37 //wird uninteressant sein, da püber blootooth mal sehen 
 #define VEDIRECT_TX_PIN          -1
 #define VEDIRECT_BAUD            19200
 #define VEDIRECT_UART            Serial1

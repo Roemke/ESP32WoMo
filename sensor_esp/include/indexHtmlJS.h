@@ -116,6 +116,11 @@ async function poll() {
       setBadge('valHum',   d.bme.H + ' %%',  humClass(d.bme.H));
       setBadge('valPress', d.bme.P + ' hPa', 'neutral');
     }
+    if (d.scd41 && d.scd41.valid) {
+      setBadge('scd41Co2',  d.scd41.co2 + ' ppm', co2Class(d.scd41.co2));
+      setBadge('scd41Temp', d.scd41.T   + ' °C',  'neutral');
+      setBadge('scd41Hum',  d.scd41.H   + ' %%',  'neutral');
+    }
 
     // VE.Direct / BMV712
     if (d.vedirect && d.vedirect.valid) {
@@ -141,8 +146,15 @@ async function poll() {
       setBadge('mppt2Y',  d.mppt2.yield + ' Wh', 'neutral');
     }  
 
-    // Log – neue Zeilen anhängen
-    if (d.log && d.log.length > 0) {
+  } catch(e) {
+      setText('statusUpdate', 'Fehler');
+  }
+}
+ async function pollLog() {
+    try {
+        const r = await fetch('/api/log?logFrom=' + logFrom);
+        const d = await r.json();
+        if (d.log && d.log.length > 0) {
             const c = document.getElementById('logContainer');
             d.log.forEach(line => {
                 const div = document.createElement('div');
@@ -153,10 +165,8 @@ async function poll() {
         }
         if (typeof d.logCount !== 'undefined')
             logFrom = d.logCount;
-    } catch(e) {
-        setText('statusUpdate', 'Fehler');
-  }
-}
+    } catch(e) {}
+} 
 
 // ================================================================
 // Konfiguration laden beim Start
@@ -298,6 +308,8 @@ window.addEventListener('load', () => {
   document.getElementById('defaultTab').click();  
   poll();
   setInterval(poll, 5000);
+  pollLog();
+  setInterval(pollLog, 3000);
 });
 </script>
 </head>
@@ -329,7 +341,10 @@ window.addEventListener('load', () => {
   <div class="kv"><label>Temperatur:</label>     <span class="badge neutral" id="valTemp">---</span></div>
   <div class="kv"><label>Feuchte:</label>        <span class="badge neutral" id="valHum">---</span></div>
   <div class="kv"><label>Luftdruck:</label>      <span class="badge neutral" id="valPress">---</span></div>
-
+  <h2>CO2 (SCD41)</h2>
+  <div class="kv"><label>CO2:</label>         <span class="badge neutral" id="scd41Co2">---</span></div>
+  <div class="kv"><label>Temperatur:</label>  <span class="badge neutral" id="scd41Temp">---</span></div>
+  <div class="kv"><label>Feuchte:</label>     <span class="badge neutral" id="scd41Hum">---</span></div>
   <h2>Batterie (BMV712)</h2>
   <div class="kv"><label>Spannung:</label>       <span class="badge neutral" id="valV">---</span></div>
   <div class="kv"><label>Strom:</label>          <span class="badge neutral" id="valI">---</span></div>
