@@ -92,7 +92,7 @@ static bool connectSTA()
     logPrintf("WiFi: Verbinde mit '%s' ...\n", wifiData.ssid);
     WiFi.mode(WIFI_STA);
     WiFi.begin(wifiData.ssid, wifiData.password);
-    WiFi.setSleep(false);
+    WiFi.setSleep(true);
     WiFi.setAutoReconnect(true);
     if (wifiData.use_static_ip)
     {
@@ -130,7 +130,7 @@ static void startAP()
     logPrintln("WiFi: Starte Access Point...");
     WiFi.mode(WIFI_AP);
     delay(500);
-    WiFi.setSleep(false);
+    WiFi.setSleep(true);
 
     bool ok;
     if (strlen(WIFI_AP_PASSWORD) > 0)
@@ -151,6 +151,7 @@ static void startAP()
 // ----------------------------------------------------------------
 // Öffentlicher Setup-Einstiegspunkt
 // ----------------------------------------------------------------
+/*
 void wifiSetup()
 {
     // MACs auslesen bevor WiFi zurückgesetzt wird
@@ -175,6 +176,23 @@ void wifiSetup()
         return;
 
     startAP();
+}
+    */
+void wifiSetup()
+{
+    // Direkt starten ohne Reset-Zyklus (BLE hält bereits den RF-Controller)
+    if (loadWifiData() && connectSTA())
+    {
+        wifiMacAp  = WiFi.softAPmacAddress();
+        wifiMacSta = WiFi.macAddress();
+        logPrintf("WiFi: MAC STA=%s  AP=%s\n", wifiMacSta.c_str(), wifiMacAp.c_str());
+        return;
+    }
+
+    startAP();
+    wifiMacAp  = WiFi.softAPmacAddress();
+    wifiMacSta = WiFi.macAddress();
+    logPrintf("WiFi: MAC STA=%s  AP=%s\n", wifiMacSta.c_str(), wifiMacAp.c_str());
 }
 
 // ----------------------------------------------------------------

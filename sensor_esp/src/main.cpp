@@ -213,6 +213,11 @@ void setup() {
     bleConfigLoad();
     ESP_LOGI("MAIN","BleConfig OK");
     
+    //folgendes vor wifi setup
+    ESP_LOGI("main","Heap vor BLE: %lu\n", ESP.getFreeHeap());
+    victronBleSetup();
+    ESP_LOGI("main","Heap nach BLE: %lu\n", ESP.getFreeHeap());
+    ESP_LOGI("MAIN","VictronBLE OK");    
 
     wifiSetup();
     ESP_LOGI("MAIN","WiFi OK");
@@ -228,10 +233,7 @@ void setup() {
     else
         ESP_LOGI("MAIN","SCD41 OK");
 
-    ESP_LOGI("main","Heap vor BLE: %lu\n", ESP.getFreeHeap());
-    victronBleSetup();
-    ESP_LOGI("main","Heap nach BLE: %lu\n", ESP.getFreeHeap());
-    ESP_LOGI("MAIN","VictronBLE OK");    
+   
     
     // server routen setzen 
     addRoutes();

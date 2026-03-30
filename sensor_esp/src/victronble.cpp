@@ -63,7 +63,7 @@ void victronBleSetup()
         logPrintln("VictronBLE: Keine Geräte konfiguriert");
         return;
     }
-
+    
     if (!victron.begin(5))
     {
         logPrintln("VictronBLE: BLE init FEHLER");
