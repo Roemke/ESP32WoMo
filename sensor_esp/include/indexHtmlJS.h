@@ -133,10 +133,8 @@ async function poll() {
     }
     // Ladegerät IP22
     if (d.charger && d.charger.valid) {
-      setBadge('chargerV',     d.charger.V  + ' V', 'neutral');
-      setBadge('chargerI',     d.charger.I  + ' A', 'neutral');
-      setBadge('chargerP',     d.charger.P  + ' W', 'neutral');
-      setBadge('chargerWh',    d.charger.Wh + ' Wh', 'neutral');
+      setBadge('chargerV',     d.charger.V + ' V', 'neutral');
+      setBadge('chargerI',     d.charger.I + ' A', 'neutral');
       setBadge('chargerState', d.charger.stateStr || '---', 'neutral');
     }
     // MPPT1
@@ -367,11 +365,9 @@ window.addEventListener('load', () => {
   <div class="kv"><label>Restlaufzeit:</label>   <span class="badge neutral" id="valTTG">---</span></div>
   <div class="kv"><label>Starterbatterie:</label><span class="badge neutral" id="valVS">---</span></div>
   <h2>Ladegerät (IP22)</h2>
-  <div class="kv"><label>Spannung:</label>          <span class="badge neutral" id="chargerV">---</span></div>
-  <div class="kv"><label>Strom:</label>             <span class="badge neutral" id="chargerI">---</span></div>
-  <div class="kv"><label>Eingangsleistung:</label>  <span class="badge neutral" id="chargerP">---</span></div>
-  <div class="kv"><label>Geladen heute:</label>     <span class="badge neutral" id="chargerWh">---</span></div>
-  <div class="kv"><label>Status:</label>            <span class="badge neutral" id="chargerState">---</span></div>
+  <div class="kv"><label>Spannung:</label>    <span class="badge neutral" id="chargerV">---</span></div>
+  <div class="kv"><label>Strom:</label>       <span class="badge neutral" id="chargerI">---</span></div>
+  <div class="kv"><label>Status:</label>      <span class="badge neutral" id="chargerState">---</span></div>
   <h2>Solar MPPT1</h2>
   <div class="kv"><label>Spannung:</label>    <span class="badge neutral" id="mppt1V">---</span></div>
   <div class="kv"><label>Strom:</label>       <span class="badge neutral" id="mppt1I">---</span></div>

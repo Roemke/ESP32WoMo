@@ -33,11 +33,14 @@ enum VictronDeviceType {
     DEVICE_TYPE_DCDC_CONVERTER = 0x04,
     DEVICE_TYPE_SMART_LITHIUM = 0x05,
     DEVICE_TYPE_INVERTER_RS = 0x06,
-    DEVICE_TYPE_SMART_BATTERY_PROTECT = 0x07,
-    DEVICE_TYPE_LYNX_SMART_BMS = 0x08,
-    DEVICE_TYPE_MULTI_RS = 0x09,
-    DEVICE_TYPE_VE_BUS = 0x0A,
-    DEVICE_TYPE_DC_ENERGY_METER = 0x0B
+    DEVICE_TYPE_GX_DEVICE = 0x07,
+    DEVICE_TYPE_AC_CHARGER = 0x08,          // Blue Smart IP22/IP65/IP67
+    DEVICE_TYPE_SMART_BATTERY_PROTECT = 0x09,
+    DEVICE_TYPE_LYNX_SMART_BMS = 0x0A,
+    DEVICE_TYPE_MULTI_RS = 0x0B,
+    DEVICE_TYPE_VE_BUS = 0x0C,
+    DEVICE_TYPE_DC_ENERGY_METER = 0x0D,
+    DEVICE_TYPE_ORION_XS = 0x0F
 };
 
 // --- Device state for Solar Charger ---
@@ -163,6 +166,15 @@ struct VictronDCDCData {
     uint8_t errorCode;
 };
 
+// Blue Smart IP22/IP65/IP67 — record type 0x08
+// Ausgabe 1 ist die primäre (IP22 hat nur eine). 2 und 3 sind 0x1FFF/0x7FF wenn nicht vorhanden.
+struct VictronAcChargerData {
+    uint8_t chargeState;       // Ladezustand (Bulk=3, Absorption=4, Float=5, ...)
+    uint8_t errorCode;
+    float   voltage1;          // Ausgangsspannung 1 in V (0.01V Auflösung)
+    float   current1;          // Ausgangsstrom 1 in A (0.1A Auflösung, signed)
+};
+
 // ============================================================
 // Main device struct with tagged union
 // ============================================================
@@ -179,6 +191,7 @@ struct VictronDevice {
         VictronBatteryData battery;
         VictronInverterData inverter;
         VictronDCDCData dcdc;
+        VictronAcChargerData acCharger;
     };
 };
 
@@ -239,6 +252,7 @@ private:
     bool parseBatteryMonitor(const uint8_t* data, size_t len, VictronBatteryData& result);
     bool parseInverter(const uint8_t* data, size_t len, VictronInverterData& result);
     bool parseDCDCConverter(const uint8_t* data, size_t len, VictronDCDCData& result);
+    bool parseAcCharger(const uint8_t* data, size_t len, VictronAcChargerData& result);
 };
 
 // BLE scan callback (required by ESP32 BLE API)

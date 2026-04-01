@@ -180,6 +180,10 @@ bool VictronBLE::parseAdvertisement(DeviceEntry* entry, const victronManufacture
             entry->device.deviceType = DEVICE_TYPE_DCDC_CONVERTER;
             ok = parseDCDCConverter(decrypted, VICTRON_ENCRYPTED_LEN, entry->device.dcdc);
             break;
+        case DEVICE_TYPE_AC_CHARGER:
+            entry->device.deviceType = DEVICE_TYPE_AC_CHARGER;
+            ok = parseAcCharger(decrypted, VICTRON_ENCRYPTED_LEN, entry->device.acCharger);
+            break;
         default:
             if (debugEnabled) Serial.printf("[VictronBLE] Unknown type: 0x%02X\n", mfg.victronRecordType);
             return false;
@@ -387,6 +391,28 @@ bool VictronBLE::parseDCDCConverter(const uint8_t* data, size_t len, VictronDCDC
     if (debugEnabled) {
         Serial.printf("[VictronBLE] DC-DC: In=%.2fV Out=%.2fV %.2fA\n",
                       result.inputVoltage, result.outputVoltage, result.outputCurrent);
+    }
+    return true;
+}
+
+bool VictronBLE::parseAcCharger(const uint8_t* data, size_t len, VictronAcChargerData& result) {
+    if (len < 5) return false;
+
+    result.chargeState = data[0];
+    result.errorCode   = data[1];
+
+    // Spannung 1: Bits 16-28 (13 Bit, 0.01V)
+    uint16_t v1 = data[2] | ((uint16_t)(data[3] & 0x1F) << 8);
+    // Strom 1: Bits 29-39 (11 Bit signed, 0.1A)
+    int16_t  i1 = ((data[3] >> 5) & 0x07) | ((uint16_t)data[4] << 3);
+    if (i1 & 0x400) i1 |= 0xF800;
+
+    result.voltage1 = v1 * 0.01f;
+    result.current1 = i1 * 0.1f;
+
+    if (debugEnabled) {
+        Serial.printf("[VictronBLE] AcCharger: %.2fV %.1fA State:%d Err:%d\n",
+                      result.voltage1, result.current1, result.chargeState, result.errorCode);
     }
     return true;
 }

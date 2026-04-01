@@ -25,14 +25,13 @@ struct MpptData {
     uint32_t lastUpdateMs;
 };
 
-// Ladegerät-Daten vom Blue Smart IP22 (gleiche BLE-Payload wie MPPT)
+// Ladegerät-Daten vom Blue Smart IP22 (Record-Type 0x08 = AC_CHARGER)
 struct ChargerData {
     bool    valid;
-    float   battery_voltage;
-    float   battery_current;
-    float   input_power;      // AC-Eingangsleistung in W
-    uint16_t charged_today;   // geladene Energie heute in Wh
+    float   battery_voltage;  // Ausgangsspannung in V
+    float   battery_current;  // Ausgangsstrom in A
     uint8_t charge_state;
+    uint8_t error_code;
     uint32_t lastUpdateMs;
 };
 

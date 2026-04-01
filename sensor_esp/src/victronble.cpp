@@ -45,28 +45,22 @@ static void onVictronData(const VictronDevice *dev)
         //logPrintf("BMV712: %.2fV %.2fA %.1f%% TTG=%dmin\n",
           //  b.voltage, b.current, b.soc, b.remainingMinutes);
     }
+    else if (dev->deviceType == DEVICE_TYPE_AC_CHARGER)
+    {
+        const VictronAcChargerData &c = dev->acCharger;
+        chargerData.valid           = true;
+        chargerData.battery_voltage = c.voltage1;
+        chargerData.battery_current = c.current1;
+        chargerData.charge_state    = c.chargeState;
+        chargerData.error_code      = c.errorCode;
+        chargerData.lastUpdateMs    = millis();
+        logPrintf("Charger: %.2fV %.2fA State=%d\n",
+            c.voltage1, c.current1, c.chargeState);
+    }
     else if (dev->deviceType == DEVICE_TYPE_SOLAR_CHARGER)
     {
         const VictronSolarData &s = dev->solar;
         char macNorm[13] = {};
-
-        // Charger-MAC prüfen
-        if (strlen(bleConfig.charger_mac) > 0) {
-            normalizeMac(bleConfig.charger_mac, macNorm);
-            if (strcmp(dev->mac, macNorm) == 0) {
-                chargerData.valid           = true;
-                chargerData.battery_voltage = s.batteryVoltage;
-                chargerData.battery_current = s.batteryCurrent;
-                chargerData.input_power     = s.panelPower;
-                chargerData.charged_today   = s.yieldToday;
-                chargerData.charge_state    = s.chargeState;
-                chargerData.lastUpdateMs    = millis();
-                logPrintf("Charger: %.2fV %.2fA %dW geladen=%dWh\n",
-                    s.batteryVoltage, s.batteryCurrent,
-                    (int)s.panelPower, s.yieldToday);
-                return;
-            }
-        }
 
         // anhand MAC unterscheiden welcher MPPT
         normalizeMac(bleConfig.mppt1_mac, macNorm);
@@ -121,7 +115,7 @@ void victronBleSetup()
 
     if (strlen(bleConfig.charger_mac) > 0)
         victron.addDevice("Charger", bleConfig.charger_mac, bleConfig.charger_bindkey,
-                          DEVICE_TYPE_SOLAR_CHARGER);
+                          DEVICE_TYPE_AC_CHARGER);
 
     s_initialized = true;
     logPrintln("VictronBLE: gestartet");
@@ -199,7 +193,7 @@ String mpptToJson(const MpptData &m)
             case 3:   stateStr = "Bulk"; break;
             case 4:   stateStr = "Absorption"; break;
             case 5:   stateStr = "Float"; break;
-            case 6:   stateStr = "Speicher"; break;
+            case 6:   stateStr = "Lagerung"; break;
             case 7:   stateStr = "Ausgleich"; break;
             case 9:   stateStr = "Invertierung"; break;
             case 11:  stateStr = "Netzteil"; break;
@@ -223,8 +217,6 @@ String chargerToJson()
     {
         doc["V"]     = serialized(String(chargerData.battery_voltage, 2));
         doc["I"]     = serialized(String(chargerData.battery_current, 2));
-        doc["P"]     = serialized(String(chargerData.input_power,     1));
-        doc["Wh"]    = chargerData.charged_today;
         doc["state"] = chargerData.charge_state;
         const char* stateStr = "Unbekannt";
         switch (chargerData.charge_state) {
@@ -233,7 +225,7 @@ String chargerToJson()
             case 3:   stateStr = "Bulk"; break;
             case 4:   stateStr = "Absorption"; break;
             case 5:   stateStr = "Float"; break;
-            case 6:   stateStr = "Speicher"; break;
+            case 6:   stateStr = "Lagerung"; break;
             case 7:   stateStr = "Ausgleich"; break;
             case 11:  stateStr = "Netzteil"; break;
             case 252: stateStr = "Externe Regelung"; break;
