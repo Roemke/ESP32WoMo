@@ -250,17 +250,19 @@ async function poll() {
     }
     // MPPT1
     if (d.mppt1 && d.mppt1.valid) {
-      setBadge('mppt1V',  d.mppt1.V     + ' V',  'neutral');
-      setBadge('mppt1I',  d.mppt1.I     + ' A',  'neutral');
-      setBadge('mppt1PV', d.mppt1.PV    + ' W',  'neutral');
-      setBadge('mppt1Y',  d.mppt1.yield + ' Wh', 'neutral');
+      setBadge('mppt1V',     d.mppt1.V        + ' V',  'neutral');
+      setBadge('mppt1I',     d.mppt1.I        + ' A',  'neutral');
+      setBadge('mppt1PV',    d.mppt1.PV       + ' W',  'neutral');
+      setBadge('mppt1State', d.mppt1.stateStr || '---', 'neutral');
+      setBadge('mppt1Y',     d.mppt1.yield    + ' Wh', 'neutral');
     }
     // MPPT2
     if (d.mppt2 && d.mppt2.valid) {
-      setBadge('mppt2V',  d.mppt2.V     + ' V',  'neutral');
-      setBadge('mppt2I',  d.mppt2.I     + ' A',  'neutral');
-      setBadge('mppt2PV', d.mppt2.PV    + ' W',  'neutral');
-      setBadge('mppt2Y',  d.mppt2.yield + ' Wh', 'neutral');
+      setBadge('mppt2V',     d.mppt2.V        + ' V',  'neutral');
+      setBadge('mppt2I',     d.mppt2.I        + ' A',  'neutral');
+      setBadge('mppt2PV',    d.mppt2.PV       + ' W',  'neutral');
+      setBadge('mppt2State', d.mppt2.stateStr || '---', 'neutral');
+      setBadge('mppt2Y',     d.mppt2.yield    + ' Wh', 'neutral');
     }
     // Log
     if (d.log && d.log.length > 0) {
@@ -491,6 +493,7 @@ window.addEventListener('load', () => {
       <div class="kv"><label>Spannung:</label>    <span class="badge neutral" id="mppt1V">---</span></div>
       <div class="kv"><label>Strom:</label>       <span class="badge neutral" id="mppt1I">---</span></div>
       <div class="kv"><label>Leistung PV:</label> <span class="badge neutral" id="mppt1PV">---</span></div>
+      <div class="kv"><label>Status:</label>      <span class="badge neutral" id="mppt1State">---</span></div>
       <div class="kv"><label>Ertrag heute:</label><span class="badge neutral" id="mppt1Y">---</span></div>
     </div>
 
@@ -500,6 +503,7 @@ window.addEventListener('load', () => {
       <div class="kv"><label>Spannung:</label>    <span class="badge neutral" id="mppt2V">---</span></div>
       <div class="kv"><label>Strom:</label>       <span class="badge neutral" id="mppt2I">---</span></div>
       <div class="kv"><label>Leistung PV:</label> <span class="badge neutral" id="mppt2PV">---</span></div>
+      <div class="kv"><label>Status:</label>      <span class="badge neutral" id="mppt2State">---</span></div>
       <div class="kv"><label>Ertrag heute:</label><span class="badge neutral" id="mppt2Y">---</span></div>
     </div>
  

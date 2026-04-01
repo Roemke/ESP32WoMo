@@ -78,6 +78,7 @@ String buildDataJson()
         m1["V"]     = sensorData.mppt1_voltage;
         m1["I"]     = sensorData.mppt1_current;
         m1["PV"]    = sensorData.mppt1_pv_power;
+        m1["stateStr"] = sensorData.mppt1_stateStr;
         m1["yield"] = sensorData.mppt1_yield_today;
     }
 
@@ -89,6 +90,7 @@ String buildDataJson()
         m2["V"]     = sensorData.mppt2_voltage;
         m2["I"]     = sensorData.mppt2_current;
         m2["PV"]    = sensorData.mppt2_pv_power;
+        m2["stateStr"] = sensorData.mppt2_stateStr;
         m2["yield"] = sensorData.mppt2_yield_today;
     }
 

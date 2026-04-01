@@ -16,6 +16,8 @@ struct BleConfig
     char    mppt1_bindkey[33];
     char    mppt2_mac[18];
     char    mppt2_bindkey[33];
+    char    charger_mac[18];       // Blue Smart IP22 o.ä.
+    char    charger_bindkey[33];
 };
 
 extern BleConfig bleConfig;

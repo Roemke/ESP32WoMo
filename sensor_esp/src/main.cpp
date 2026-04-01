@@ -30,8 +30,10 @@ String processor(const String& var)
     if (var == "BMV_BINDKEY")    return String(bleConfig.bmv_bindkey);
     if (var == "MPPT1_MAC")      return String(bleConfig.mppt1_mac);
     if (var == "MPPT1_BINDKEY")  return String(bleConfig.mppt1_bindkey);
-    if (var == "MPPT2_MAC")      return String(bleConfig.mppt2_mac);
-    if (var == "MPPT2_BINDKEY")  return String(bleConfig.mppt2_bindkey);
+    if (var == "MPPT2_MAC")        return String(bleConfig.mppt2_mac);
+    if (var == "MPPT2_BINDKEY")    return String(bleConfig.mppt2_bindkey);
+    if (var == "CHARGER_MAC")      return String(bleConfig.charger_mac);
+    if (var == "CHARGER_BINDKEY")  return String(bleConfig.charger_bindkey);
     return "";
 }
 
@@ -44,8 +46,9 @@ String buildDataJson()
     doc["co2"]   = serialized(scd41ToJson());     // nur CO2 für Display
     doc["scd41"]    = serialized(scd41ToJsonFull()); //alle für webinterface
     doc["vedirect"] = serialized(bmvToJson());      // BMV712 via BLE    
-    doc["mppt1"]   = serialized(mppt1ToJson());     // MPPT1 via BLE
-    doc["mppt2"]   = serialized(mppt2ToJson());     // MPPT2 via BLE
+    doc["mppt1"]    = serialized(mppt1ToJson());     // MPPT1 via BLE
+    doc["mppt2"]    = serialized(mppt2ToJson());     // MPPT2 via BLE
+    doc["charger"]  = serialized(chargerToJson());   // Blue Smart IP22 via BLE
     doc["wifi"]    = wifiGetIP();
 
 
@@ -152,9 +155,13 @@ void addRoutes()
             if (doc["mppt1_bindkey"].is<const char*>())
                 strlcpy(bleConfig.mppt1_bindkey, doc["mppt1_bindkey"], sizeof(bleConfig.mppt1_bindkey));
             if (doc["mppt2_mac"].is<const char*>())
-                strlcpy(bleConfig.mppt2_mac,     doc["mppt2_mac"],     sizeof(bleConfig.mppt2_mac));
+                strlcpy(bleConfig.mppt2_mac,       doc["mppt2_mac"],       sizeof(bleConfig.mppt2_mac));
             if (doc["mppt2_bindkey"].is<const char*>())
-                strlcpy(bleConfig.mppt2_bindkey, doc["mppt2_bindkey"], sizeof(bleConfig.mppt2_bindkey));
+                strlcpy(bleConfig.mppt2_bindkey,   doc["mppt2_bindkey"],   sizeof(bleConfig.mppt2_bindkey));
+            if (doc["charger_mac"].is<const char*>())
+                strlcpy(bleConfig.charger_mac,     doc["charger_mac"],     sizeof(bleConfig.charger_mac));
+            if (doc["charger_bindkey"].is<const char*>())
+                strlcpy(bleConfig.charger_bindkey, doc["charger_bindkey"], sizeof(bleConfig.charger_bindkey));
             bleConfigSave();
             req->send(200, "application/json", "{\"ok\":true}");
             

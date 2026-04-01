@@ -10,9 +10,10 @@
 static VictronBLE victron;
 static bool s_initialized = false;
 
-BmvData  bmvData  = {};
-MpptData mppt1Data = {};
-MpptData mppt2Data = {};
+BmvData    bmvData    = {};
+MpptData   mppt1Data  = {};
+MpptData   mppt2Data  = {};
+ChargerData chargerData = {};
 
 // MAC normalisieren: "AA:BB:CC:DD:EE:FF" → "aabbccddeeff"
 static void normalizeMac(const char* input, char* output) {
@@ -27,6 +28,7 @@ static void normalizeMac(const char* input, char* output) {
 static void onVictronData(const VictronDevice *dev)
 {
     if (!dev->dataValid) return;
+    logPrintf("BLE cb: mac=%s type=0x%02X\n", dev->mac, dev->deviceType);
 
     if (dev->deviceType == DEVICE_TYPE_BATTERY_MONITOR)
     {
@@ -46,11 +48,30 @@ static void onVictronData(const VictronDevice *dev)
     else if (dev->deviceType == DEVICE_TYPE_SOLAR_CHARGER)
     {
         const VictronSolarData &s = dev->solar;
+        char macNorm[13] = {};
+
+        // Charger-MAC prüfen
+        if (strlen(bleConfig.charger_mac) > 0) {
+            normalizeMac(bleConfig.charger_mac, macNorm);
+            if (strcmp(dev->mac, macNorm) == 0) {
+                chargerData.valid           = true;
+                chargerData.battery_voltage = s.batteryVoltage;
+                chargerData.battery_current = s.batteryCurrent;
+                chargerData.input_power     = s.panelPower;
+                chargerData.charged_today   = s.yieldToday;
+                chargerData.charge_state    = s.chargeState;
+                chargerData.lastUpdateMs    = millis();
+                logPrintf("Charger: %.2fV %.2fA %dW geladen=%dWh\n",
+                    s.batteryVoltage, s.batteryCurrent,
+                    (int)s.panelPower, s.yieldToday);
+                return;
+            }
+        }
+
         // anhand MAC unterscheiden welcher MPPT
-        char mppt1norm[13] = {};
-        normalizeMac(bleConfig.mppt1_mac, mppt1norm);
+        normalizeMac(bleConfig.mppt1_mac, macNorm);
         bool isMppt1 = (strlen(bleConfig.mppt1_mac) > 0 &&
-                strcmp(dev->mac, mppt1norm) == 0);
+                strcmp(dev->mac, macNorm) == 0);
         MpptData &mppt = isMppt1 ? mppt1Data : mppt2Data;
         mppt.valid           = true;
         mppt.battery_voltage = s.batteryVoltage;
@@ -68,9 +89,10 @@ static void onVictronData(const VictronDevice *dev)
 
 void victronBleSetup()
 {
-    if (strlen(bleConfig.bmv_mac) == 0 && 
+    if (strlen(bleConfig.bmv_mac) == 0 &&
         strlen(bleConfig.mppt1_mac) == 0 &&
-        strlen(bleConfig.mppt2_mac) == 0)
+        strlen(bleConfig.mppt2_mac) == 0 &&
+        strlen(bleConfig.charger_mac) == 0)
     {
         logPrintln("VictronBLE: Keine Geräte konfiguriert");
         return;
@@ -97,6 +119,10 @@ void victronBleSetup()
         victron.addDevice("MPPT2", bleConfig.mppt2_mac, bleConfig.mppt2_bindkey,
                           DEVICE_TYPE_SOLAR_CHARGER);
 
+    if (strlen(bleConfig.charger_mac) > 0)
+        victron.addDevice("Charger", bleConfig.charger_mac, bleConfig.charger_bindkey,
+                          DEVICE_TYPE_SOLAR_CHARGER);
+
     s_initialized = true;
     logPrintln("VictronBLE: gestartet");
 }
@@ -115,17 +141,21 @@ void victronBleLoop()
         mppt1Data.valid = false;
     if (mppt2Data.valid && millis() - mppt2Data.lastUpdateMs > 30000)
         mppt2Data.valid = false;
+    if (chargerData.valid && millis() - chargerData.lastUpdateMs > 30000)
+        chargerData.valid = false;
 
     victron.loop();
 }
 
 #else
 // S2 Mini – kein BLE
-BmvData  bmvData   = {};
-MpptData mppt1Data = {};
-MpptData mppt2Data = {};
+BmvData     bmvData     = {};
+MpptData    mppt1Data   = {};
+MpptData    mppt2Data   = {};
+ChargerData chargerData = {};
 void victronBleSetup() { logPrintln("VictronBLE: S2 Mini hat kein BLE"); }
 void victronBleLoop()  {}
+String chargerToJson() { JsonDocument d; d["valid"]=false; String o; serializeJson(d,o); return o; }
 #endif
 
 // ---- JSON Ausgabe ----------------------------------------
@@ -184,3 +214,33 @@ String mpptToJson(const MpptData &m)
 
 String mppt1ToJson() { return mpptToJson(mppt1Data); }
 String mppt2ToJson() { return mpptToJson(mppt2Data); }
+
+String chargerToJson()
+{
+    JsonDocument doc;
+    doc["valid"] = chargerData.valid;
+    if (chargerData.valid)
+    {
+        doc["V"]     = serialized(String(chargerData.battery_voltage, 2));
+        doc["I"]     = serialized(String(chargerData.battery_current, 2));
+        doc["P"]     = serialized(String(chargerData.input_power,     1));
+        doc["Wh"]    = chargerData.charged_today;
+        doc["state"] = chargerData.charge_state;
+        const char* stateStr = "Unbekannt";
+        switch (chargerData.charge_state) {
+            case 0:   stateStr = "Aus"; break;
+            case 2:   stateStr = "Fehler"; break;
+            case 3:   stateStr = "Bulk"; break;
+            case 4:   stateStr = "Absorption"; break;
+            case 5:   stateStr = "Float"; break;
+            case 6:   stateStr = "Speicher"; break;
+            case 7:   stateStr = "Ausgleich"; break;
+            case 11:  stateStr = "Netzteil"; break;
+            case 252: stateStr = "Externe Regelung"; break;
+        }
+        doc["stateStr"] = stateStr;
+    }
+    String out;
+    serializeJson(doc, out);
+    return out;
+}

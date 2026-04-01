@@ -237,6 +237,7 @@ void sensorPollLoop()
         sensorData.mppt1_current     = doc["mppt1"]["I"]     | 0.0f;
         sensorData.mppt1_pv_power    = doc["mppt1"]["PV"]    | 0.0f;
         sensorData.mppt1_yield_today = doc["mppt1"]["yield"] | 0;
+        strlcpy(sensorData.mppt1_stateStr, doc["mppt1"]["stateStr"] | "---", sizeof(sensorData.mppt1_stateStr));
     }
 
     // MPPT2
@@ -247,6 +248,7 @@ void sensorPollLoop()
         sensorData.mppt2_current     = doc["mppt2"]["I"]     | 0.0f;
         sensorData.mppt2_pv_power    = doc["mppt2"]["PV"]    | 0.0f;
         sensorData.mppt2_yield_today = doc["mppt2"]["yield"] | 0;
+        strlcpy(sensorData.mppt2_stateStr, doc["mppt2"]["stateStr"] | "---", sizeof(sensorData.mppt2_stateStr));
     }
 
     // CO2

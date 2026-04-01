@@ -25,12 +25,25 @@ struct MpptData {
     uint32_t lastUpdateMs;
 };
 
-extern BmvData  bmvData;
-extern MpptData mppt1Data;
-extern MpptData mppt2Data;
+// Ladegerät-Daten vom Blue Smart IP22 (gleiche BLE-Payload wie MPPT)
+struct ChargerData {
+    bool    valid;
+    float   battery_voltage;
+    float   battery_current;
+    float   input_power;      // AC-Eingangsleistung in W
+    uint16_t charged_today;   // geladene Energie heute in Wh
+    uint8_t charge_state;
+    uint32_t lastUpdateMs;
+};
+
+extern BmvData     bmvData;
+extern MpptData    mppt1Data;
+extern MpptData    mppt2Data;
+extern ChargerData chargerData;
 
 void victronBleSetup();
 void victronBleLoop();
 String bmvToJson();
 String mppt1ToJson();
 String mppt2ToJson();
+String chargerToJson();

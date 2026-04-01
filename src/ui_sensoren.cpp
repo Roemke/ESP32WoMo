@@ -17,14 +17,16 @@ static lv_obj_t *s_press   = nullptr;
 static lv_obj_t *s_co2     = nullptr;
 static lv_obj_t *s_ip      = nullptr;
 
-static lv_obj_t *s_mppt1_v   = nullptr;
-static lv_obj_t *s_mppt1_i   = nullptr;
-static lv_obj_t *s_mppt1_pv  = nullptr;
-static lv_obj_t *s_mppt1_y   = nullptr;
-static lv_obj_t *s_mppt2_v   = nullptr;
-static lv_obj_t *s_mppt2_i   = nullptr;
-static lv_obj_t *s_mppt2_pv  = nullptr;
-static lv_obj_t *s_mppt2_y   = nullptr;
+static lv_obj_t *s_mppt1_v     = nullptr;
+static lv_obj_t *s_mppt1_i     = nullptr;
+static lv_obj_t *s_mppt1_pv    = nullptr;
+static lv_obj_t *s_mppt1_state = nullptr;
+static lv_obj_t *s_mppt1_y     = nullptr;
+static lv_obj_t *s_mppt2_v     = nullptr;
+static lv_obj_t *s_mppt2_i     = nullptr;
+static lv_obj_t *s_mppt2_pv    = nullptr;
+static lv_obj_t *s_mppt2_state = nullptr;
+static lv_obj_t *s_mppt2_y     = nullptr;
 
 // ----------------------------------------------------------------
 // Hilfsfunktion: Panel erstellen
@@ -120,20 +122,22 @@ void uiSensorenSetup(lv_obj_t *tab)
     lv_obj_align(s_ip, LV_ALIGN_BOTTOM_RIGHT, -10, -8);
 
     // ---- MPPT1 Panel (links unten) ------------------------------
-    lv_obj_t *p_mppt1 = makePanel(tab, 0, 400, 388, 280);
+    lv_obj_t *p_mppt1 = makePanel(tab, 0, 400, 388, 344);
     makeTitle(p_mppt1, "Solar MPPT1");
-    s_mppt1_v  = makeRow(p_mppt1, "Spannung:",    row_start);
-    s_mppt1_i  = makeRow(p_mppt1, "Strom:",       row_start + row_step);
-    s_mppt1_pv = makeRow(p_mppt1, "PV Leistung:", row_start + row_step * 2);
-    s_mppt1_y  = makeRow(p_mppt1, "Ertrag heute:",row_start + row_step * 3);
+    s_mppt1_v     = makeRow(p_mppt1, "Spannung:",    row_start);
+    s_mppt1_i     = makeRow(p_mppt1, "Strom:",       row_start + row_step);
+    s_mppt1_pv    = makeRow(p_mppt1, "PV Leistung:", row_start + row_step * 2);
+    s_mppt1_state = makeRow(p_mppt1, "Status:",      row_start + row_step * 3);
+    s_mppt1_y     = makeRow(p_mppt1, "Ertrag heute:",row_start + row_step * 4);
 
     // ---- MPPT2 Panel (rechts unten) -----------------------------
-    lv_obj_t *p_mppt2 = makePanel(tab, 404, 400, 388, 280);
+    lv_obj_t *p_mppt2 = makePanel(tab, 404, 400, 388, 344);
     makeTitle(p_mppt2, "Solar MPPT2");
-    s_mppt2_v  = makeRow(p_mppt2, "Spannung:",    row_start);
-    s_mppt2_i  = makeRow(p_mppt2, "Strom:",       row_start + row_step);
-    s_mppt2_pv = makeRow(p_mppt2, "PV Leistung:", row_start + row_step * 2);
-    s_mppt2_y  = makeRow(p_mppt2, "Ertrag heute:",row_start + row_step * 3);
+    s_mppt2_v     = makeRow(p_mppt2, "Spannung:",    row_start);
+    s_mppt2_i     = makeRow(p_mppt2, "Strom:",       row_start + row_step);
+    s_mppt2_pv    = makeRow(p_mppt2, "PV Leistung:", row_start + row_step * 2);
+    s_mppt2_state = makeRow(p_mppt2, "Status:",      row_start + row_step * 3);
+    s_mppt2_y     = makeRow(p_mppt2, "Ertrag heute:",row_start + row_step * 4);
 }
 
 // ================================================================
@@ -220,15 +224,17 @@ void uiSensorenUpdate()
         lv_label_set_text(s_mppt1_i, buf);
         snprintf(buf, sizeof(buf), "%.1f W", sensorData.mppt1_pv_power);
         lv_label_set_text(s_mppt1_pv, buf);
+        lv_label_set_text(s_mppt1_state, sensorData.mppt1_stateStr);
         snprintf(buf, sizeof(buf), "%d Wh", sensorData.mppt1_yield_today);
         lv_label_set_text(s_mppt1_y, buf);
     }
     else
     {
-        lv_label_set_text(s_mppt1_v,  "---");
-        lv_label_set_text(s_mppt1_i,  "---");
-        lv_label_set_text(s_mppt1_pv, "---");
-        lv_label_set_text(s_mppt1_y,  "---");
+        lv_label_set_text(s_mppt1_v,     "---");
+        lv_label_set_text(s_mppt1_i,     "---");
+        lv_label_set_text(s_mppt1_pv,    "---");
+        lv_label_set_text(s_mppt1_state, "---");
+        lv_label_set_text(s_mppt1_y,     "---");
     }
 
     // ---- MPPT2 --------------------------------------------------
@@ -240,15 +246,17 @@ void uiSensorenUpdate()
         lv_label_set_text(s_mppt2_i, buf);
         snprintf(buf, sizeof(buf), "%.1f W", sensorData.mppt2_pv_power);
         lv_label_set_text(s_mppt2_pv, buf);
+        lv_label_set_text(s_mppt2_state, sensorData.mppt2_stateStr);
         snprintf(buf, sizeof(buf), "%d Wh", sensorData.mppt2_yield_today);
         lv_label_set_text(s_mppt2_y, buf);
     }
     else
     {
-        lv_label_set_text(s_mppt2_v,  "---");
-        lv_label_set_text(s_mppt2_i,  "---");
-        lv_label_set_text(s_mppt2_pv, "---");
-        lv_label_set_text(s_mppt2_y,  "---");
+        lv_label_set_text(s_mppt2_v,     "---");
+        lv_label_set_text(s_mppt2_i,     "---");
+        lv_label_set_text(s_mppt2_pv,    "---");
+        lv_label_set_text(s_mppt2_state, "---");
+        lv_label_set_text(s_mppt2_y,     "---");
     }    
 }
 

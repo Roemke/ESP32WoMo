@@ -131,6 +131,14 @@ async function poll() {
       setBadge('valTTG', ttgFormat(d.vedirect.TTG), 'neutral');
       setBadge('valVS',  d.vedirect.VS  + ' V',  'neutral');
     }
+    // Ladegerät IP22
+    if (d.charger && d.charger.valid) {
+      setBadge('chargerV',     d.charger.V  + ' V', 'neutral');
+      setBadge('chargerI',     d.charger.I  + ' A', 'neutral');
+      setBadge('chargerP',     d.charger.P  + ' W', 'neutral');
+      setBadge('chargerWh',    d.charger.Wh + ' Wh', 'neutral');
+      setBadge('chargerState', d.charger.stateStr || '---', 'neutral');
+    }
     // MPPT1
     if (d.mppt1 && d.mppt1.valid) {
       setBadge('mppt1V',  d.mppt1.V  + ' V', 'neutral');
@@ -192,8 +200,10 @@ async function loadBleConfig() {
     setVal('cfg-bmv-key',     d.bmv_bindkey);
     setVal('cfg-mppt1-mac',   d.mppt1_mac);
     setVal('cfg-mppt1-key',   d.mppt1_bindkey);
-    setVal('cfg-mppt2-mac',   d.mppt2_mac);
-    setVal('cfg-mppt2-key',   d.mppt2_bindkey);
+    setVal('cfg-mppt2-mac',     d.mppt2_mac);
+    setVal('cfg-mppt2-key',     d.mppt2_bindkey);
+    setVal('cfg-charger-mac',   d.charger_mac);
+    setVal('cfg-charger-key',   d.charger_bindkey);
   } catch(e) {}
 }
 
@@ -247,8 +257,10 @@ async function saveBle() {
     bmv_bindkey:   getVal('cfg-bmv-key'),
     mppt1_mac:     getVal('cfg-mppt1-mac'),
     mppt1_bindkey: getVal('cfg-mppt1-key'),
-    mppt2_mac:     getVal('cfg-mppt2-mac'),
-    mppt2_bindkey: getVal('cfg-mppt2-key')
+    mppt2_mac:        getVal('cfg-mppt2-mac'),
+    mppt2_bindkey:    getVal('cfg-mppt2-key'),
+    charger_mac:      getVal('cfg-charger-mac'),
+    charger_bindkey:  getVal('cfg-charger-key')
   };
   try {
     await fetch('/api/config/ble', {
@@ -354,6 +366,12 @@ window.addEventListener('load', () => {
   <div class="kv"><label>SoC:</label>            <span class="badge neutral" id="valSOC">---</span></div>
   <div class="kv"><label>Restlaufzeit:</label>   <span class="badge neutral" id="valTTG">---</span></div>
   <div class="kv"><label>Starterbatterie:</label><span class="badge neutral" id="valVS">---</span></div>
+  <h2>Ladegerät (IP22)</h2>
+  <div class="kv"><label>Spannung:</label>          <span class="badge neutral" id="chargerV">---</span></div>
+  <div class="kv"><label>Strom:</label>             <span class="badge neutral" id="chargerI">---</span></div>
+  <div class="kv"><label>Eingangsleistung:</label>  <span class="badge neutral" id="chargerP">---</span></div>
+  <div class="kv"><label>Geladen heute:</label>     <span class="badge neutral" id="chargerWh">---</span></div>
+  <div class="kv"><label>Status:</label>            <span class="badge neutral" id="chargerState">---</span></div>
   <h2>Solar MPPT1</h2>
   <div class="kv"><label>Spannung:</label>    <span class="badge neutral" id="mppt1V">---</span></div>
   <div class="kv"><label>Strom:</label>       <span class="badge neutral" id="mppt1I">---</span></div>
@@ -392,8 +410,10 @@ window.addEventListener('load', () => {
 
   <h2>Victron BLE</h2>
     <div class="form-row"><label>BMV712 MAC</label>       <input type="text" id="cfg-bmv-mac"      value="%BMV_MAC%"      placeholder="AA:BB:CC:DD:EE:FF"></div>
-    <div class="form-row"><label>BMV712 Key</label>       <input type="text" id="cfg-bmv-key"      value="%BMV_BINDKEY%"  placeholder="32 hex Zeichen"></div>
-    <div class="form-row"><label>MPPT1 MAC</label>        <input type="text" id="cfg-mppt1-mac"    value="%MPPT1_MAC%"    placeholder="leer = nicht genutzt"></div>
+    <div class="form-row"><label>BMV712 Key</label>       <input type="text" id="cfg-bmv-key"      value="%BMV_BINDKEY%"     placeholder="32 hex Zeichen"></div>
+    <div class="form-row"><label>IP22 MAC</label>         <input type="text" id="cfg-charger-mac"  value="%CHARGER_MAC%"     placeholder="leer = nicht genutzt"></div>
+    <div class="form-row"><label>IP22 Key</label>         <input type="text" id="cfg-charger-key"  value="%CHARGER_BINDKEY%" placeholder="32 hex Zeichen"></div>
+    <div class="form-row"><label>MPPT1 MAC</label>        <input type="text" id="cfg-mppt1-mac"    value="%MPPT1_MAC%"       placeholder="leer = nicht genutzt"></div>
     <div class="form-row"><label>MPPT1 Key</label>        <input type="text" id="cfg-mppt1-key"    value="%MPPT1_BINDKEY%" placeholder="32 hex Zeichen"></div>
     <div class="form-row"><label>MPPT2 MAC</label>        <input type="text" id="cfg-mppt2-mac"    value="%MPPT2_MAC%"    placeholder="leer = nicht genutzt"></div>
     <div class="form-row"><label>MPPT2 Key</label>        <input type="text" id="cfg-mppt2-key"    value="%MPPT2_BINDKEY%" placeholder="32 hex Zeichen"></div>

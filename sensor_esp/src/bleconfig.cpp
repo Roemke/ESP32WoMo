@@ -34,11 +34,13 @@ bool bleConfigLoad()
     strlcpy(bleConfig.bmv_bindkey,    doc["bmv_bindkey"]    | BLE_BMV_BINDKEY_DEFAULT,   sizeof(bleConfig.bmv_bindkey));
     strlcpy(bleConfig.mppt1_mac,      doc["mppt1_mac"]      | BLE_MPPT1_MAC_DEFAULT,     sizeof(bleConfig.mppt1_mac));
     strlcpy(bleConfig.mppt1_bindkey,  doc["mppt1_bindkey"]  | BLE_MPPT1_BINDKEY_DEFAULT, sizeof(bleConfig.mppt1_bindkey));
-    strlcpy(bleConfig.mppt2_mac,      doc["mppt2_mac"]      | BLE_MPPT2_MAC_DEFAULT,     sizeof(bleConfig.mppt2_mac));
-    strlcpy(bleConfig.mppt2_bindkey,  doc["mppt2_bindkey"]  | BLE_MPPT2_BINDKEY_DEFAULT, sizeof(bleConfig.mppt2_bindkey));
+    strlcpy(bleConfig.mppt2_mac,      doc["mppt2_mac"]      | BLE_MPPT2_MAC_DEFAULT,       sizeof(bleConfig.mppt2_mac));
+    strlcpy(bleConfig.mppt2_bindkey,  doc["mppt2_bindkey"]  | BLE_MPPT2_BINDKEY_DEFAULT,   sizeof(bleConfig.mppt2_bindkey));
+    strlcpy(bleConfig.charger_mac,    doc["charger_mac"]    | BLE_CHARGER_MAC_DEFAULT,     sizeof(bleConfig.charger_mac));
+    strlcpy(bleConfig.charger_bindkey,doc["charger_bindkey"]| BLE_CHARGER_BINDKEY_DEFAULT, sizeof(bleConfig.charger_bindkey));
 
-    logPrintf("BleConfig: geladen – BMV=%s MPPT1=%s MPPT2=%s\n",
-        bleConfig.bmv_mac, bleConfig.mppt1_mac, bleConfig.mppt2_mac);
+    logPrintf("BleConfig: geladen – BMV=%s MPPT1=%s MPPT2=%s Charger=%s\n",
+        bleConfig.bmv_mac, bleConfig.mppt1_mac, bleConfig.mppt2_mac, bleConfig.charger_mac);
     return true;
 }
 
@@ -56,8 +58,10 @@ bool bleConfigSave()
     doc["bmv_bindkey"]  = bleConfig.bmv_bindkey;
     doc["mppt1_mac"]    = bleConfig.mppt1_mac;
     doc["mppt1_bindkey"]= bleConfig.mppt1_bindkey;
-    doc["mppt2_mac"]    = bleConfig.mppt2_mac;
-    doc["mppt2_bindkey"]= bleConfig.mppt2_bindkey;
+    doc["mppt2_mac"]       = bleConfig.mppt2_mac;
+    doc["mppt2_bindkey"]   = bleConfig.mppt2_bindkey;
+    doc["charger_mac"]     = bleConfig.charger_mac;
+    doc["charger_bindkey"] = bleConfig.charger_bindkey;
     serializeJson(doc, f);
     f.close();
     logPrintln("BleConfig: gespeichert");
@@ -71,8 +75,10 @@ String bleConfigToJson()
     doc["bmv_bindkey"]  = bleConfig.bmv_bindkey;
     doc["mppt1_mac"]    = bleConfig.mppt1_mac;
     doc["mppt1_bindkey"]= bleConfig.mppt1_bindkey;
-    doc["mppt2_mac"]    = bleConfig.mppt2_mac;
-    doc["mppt2_bindkey"]= bleConfig.mppt2_bindkey;
+    doc["mppt2_mac"]       = bleConfig.mppt2_mac;
+    doc["mppt2_bindkey"]   = bleConfig.mppt2_bindkey;
+    doc["charger_mac"]     = bleConfig.charger_mac;
+    doc["charger_bindkey"] = bleConfig.charger_bindkey;
     String out;
     serializeJson(doc, out);
     return out;

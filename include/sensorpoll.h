@@ -26,12 +26,14 @@ struct SensorData
     float   mppt1_current;
     float   mppt1_pv_power;
     uint16_t mppt1_yield_today;
+    char    mppt1_stateStr[24];
     // MPPT2
     bool    mppt2_valid;
     float   mppt2_voltage;
     float   mppt2_current;
     float   mppt2_pv_power;
     uint16_t mppt2_yield_today;
+    char    mppt2_stateStr[24];
 };
 
 struct RingStats {
