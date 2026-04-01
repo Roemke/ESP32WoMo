@@ -258,11 +258,26 @@ void setup() {
     ESP_LOGI("MAIN","Server OK");    
 }
 
+// WiFi-Watchdog: wenn STA-Modus aber seit >60s keine Verbindung → Neustart
+static void wifiWatchdog() {
+    if (WiFi.getMode() != WIFI_STA) return;
+    static uint32_t lostMs = 0;
+    if (WiFi.status() == WL_CONNECTED) {
+        lostMs = 0;
+    } else {
+        if (lostMs == 0) lostMs = millis();
+        if (millis() - lostMs > 60000) {
+            logPrintln("WiFi: 60s keine Verbindung – Neustart");
+            xTaskCreate([](void*){ vTaskDelay(pdMS_TO_TICKS(500)); ESP.restart(); },
+                "reboot", 1024, nullptr, 1, nullptr);
+            lostMs = millis(); // verhindert mehrfaches Triggern
+        }
+    }
+}
+
 void loop() {
     bme280Loop();
     scd41Loop();
-
     victronBleLoop();
-    //Serial.println(bme280ToJson());
-    //delay(1000);
+    wifiWatchdog();
 }
