@@ -14,6 +14,16 @@ BmvData  bmvData  = {};
 MpptData mppt1Data = {};
 MpptData mppt2Data = {};
 
+// MAC normalisieren: "AA:BB:CC:DD:EE:FF" → "aabbccddeeff"
+static void normalizeMac(const char* input, char* output) {
+    int j = 0;
+    for (int i = 0; input[i] && j < 12; i++) {
+        if (input[i] == ':' || input[i] == '-') continue;
+        output[j++] = tolower(input[i]);
+    }
+    output[j] = '\0';
+}
+
 static void onVictronData(const VictronDevice *dev)
 {
     if (!dev->dataValid) return;
@@ -30,15 +40,17 @@ static void onVictronData(const VictronDevice *dev)
         bmvData.voltage_starter = b.auxVoltage;
         bmvData.consumed_ah     = b.consumedAh;
         bmvData.lastUpdateMs    = millis();
-        logPrintf("BMV712: %.2fV %.2fA %.1f%% TTG=%dmin\n",
-            b.voltage, b.current, b.soc, b.remainingMinutes);
+        //logPrintf("BMV712: %.2fV %.2fA %.1f%% TTG=%dmin\n",
+          //  b.voltage, b.current, b.soc, b.remainingMinutes);
     }
     else if (dev->deviceType == DEVICE_TYPE_SOLAR_CHARGER)
     {
         const VictronSolarData &s = dev->solar;
         // anhand MAC unterscheiden welcher MPPT
+        char mppt1norm[13] = {};
+        normalizeMac(bleConfig.mppt1_mac, mppt1norm);
         bool isMppt1 = (strlen(bleConfig.mppt1_mac) > 0 &&
-                        strncasecmp(dev->mac, bleConfig.mppt1_mac, 12) == 0);
+                strcmp(dev->mac, mppt1norm) == 0);
         MpptData &mppt = isMppt1 ? mppt1Data : mppt2Data;
         mppt.valid           = true;
         mppt.battery_voltage = s.batteryVoltage;
@@ -63,7 +75,7 @@ void victronBleSetup()
         logPrintln("VictronBLE: Keine Geräte konfiguriert");
         return;
     }
-    
+    victron.setDebug(true);
     if (!victron.begin(5))
     {
         logPrintln("VictronBLE: BLE init FEHLER");
@@ -117,6 +129,7 @@ void victronBleLoop()  {}
 #endif
 
 // ---- JSON Ausgabe ----------------------------------------
+
 String bmvToJson()
 {
     JsonDocument doc;
@@ -147,6 +160,22 @@ String mpptToJson(const MpptData &m)
         doc["PV"]    = serialized(String(m.panel_power,     1));
         doc["yield"] = m.yield_today;
         doc["state"] = m.charge_state;
+         // Zusätzlich als Text:
+        const char* stateStr = "Unbekannt";
+        switch (m.charge_state) {
+            case 0:   stateStr = "Aus"; break;
+            case 1:   stateStr = "Niedrige Leistung"; break;
+            case 2:   stateStr = "Fehler"; break;
+            case 3:   stateStr = "Bulk"; break;
+            case 4:   stateStr = "Absorption"; break;
+            case 5:   stateStr = "Float"; break;
+            case 6:   stateStr = "Speicher"; break;
+            case 7:   stateStr = "Ausgleich"; break;
+            case 9:   stateStr = "Invertierung"; break;
+            case 11:  stateStr = "Netzteil"; break;
+            case 252: stateStr = "Externe Regelung"; break;
+        }
+        doc["stateStr"] = stateStr;
     }
     String out;
     serializeJson(doc, out);

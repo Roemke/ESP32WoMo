@@ -223,7 +223,9 @@ bool VictronBLE::parseSolarCharger(const uint8_t* data, size_t len, VictronSolar
     result.chargeState = p->deviceState;
     result.errorCode = p->errorCode;
     result.batteryVoltage = p->batteryVoltage * 0.01f;
-    result.batteryCurrent = p->batteryCurrent * 0.01f;
+    //result.batteryCurrent = p->batteryCurrent * 0.01f;
+    result.batteryCurrent = p->batteryCurrent * 0.1f; //faktor 10 to less
+ 
     result.yieldToday = p->yieldToday * 10;
     result.panelPower = p->inputPower;
     result.loadCurrent = (p->loadCurrent != 0xFFFF) ? p->loadCurrent * 0.01f : 0;
@@ -236,6 +238,8 @@ bool VictronBLE::parseSolarCharger(const uint8_t* data, size_t len, VictronSolar
     return true;
 }
 
+/** have strange values and claude ai says, that the victron protocol document has another specification  */
+/*
 bool VictronBLE::parseBatteryMonitor(const uint8_t* data, size_t len, VictronBatteryData& result) {
     if (len < sizeof(victronBatteryMonitorPayload)) return false;
     const auto* p = reinterpret_cast<const victronBatteryMonitorPayload*>(data);
@@ -282,6 +286,65 @@ bool VictronBLE::parseBatteryMonitor(const uint8_t* data, size_t len, VictronBat
         Serial.printf("[VictronBLE] Battery: %.2fV %.2fA SOC:%.1f%%\n",
                       result.voltage, result.current, result.soc);
     }
+    return true;
+}
+*/
+/* suggestion of claude ai*/
+bool VictronBLE::parseBatteryMonitor(const uint8_t* data, size_t len, VictronBatteryData& result) {
+    if (len < 15) return false;
+
+   /* ESP_LOGI("BMV", "RAW: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
+        data[0], data[1], data[2], data[3], data[4],
+        data[5], data[6], data[7], data[8], data[9],
+        data[10], data[11], data[12], data[13], data[14]);
+    */
+    result.remainingMinutes = data[0] | ((uint16_t)data[1] << 8);
+
+    result.voltage = (int16_t)(data[2] | ((uint16_t)data[3] << 8)) * 0.01f;
+
+    uint16_t alarm = data[4] | ((uint16_t)data[5] << 8);
+    result.alarmLowVoltage      = (alarm & 0x0001) != 0;
+    result.alarmHighVoltage     = (alarm & 0x0002) != 0;
+    result.alarmLowSOC          = (alarm & 0x0004) != 0;
+    result.alarmLowTemperature  = (alarm & 0x0010) != 0;
+    result.alarmHighTemperature = (alarm & 0x0020) != 0;
+
+    uint16_t auxRaw = data[6] | ((uint16_t)data[7] << 8);
+    uint8_t auxMode = data[8] & 0x03;
+    //ESP_LOGI("BMV", "auxRaw=%u auxMode=%u", auxRaw, auxMode);
+
+    if (auxMode == 0) {
+        result.auxVoltage  = auxRaw * 0.01f;
+        result.temperature = 0;
+    } else if (auxMode == 2) {
+        result.temperature = auxRaw * 0.01f - 273.15f;
+        result.auxVoltage  = 0;
+    } else {
+        result.auxVoltage  = 0;
+        result.temperature = 0;
+    }
+
+    int32_t current = ((uint32_t)(data[8] >> 2) & 0x3F)
+                    | ((uint32_t)data[9] << 6)
+                    | ((uint32_t)data[10] << 14);
+    //ESP_LOGI("BMV", "current raw=%ld bits: d8=%02X d9=%02X d10=%02X", current, data[8], data[9], data[10]);
+    if (current & 0x200000) current |= 0xFFC00000;
+    result.current = current * 0.001f;
+
+    int32_t consumed = (uint32_t)data[11]
+                     | ((uint32_t)data[12] << 8)
+                     | ((uint32_t)(data[13] & 0x0F) << 16);
+    if (consumed & 0x80000) consumed |= 0xFFF00000;
+    result.consumedAh = -(consumed * 0.1f);
+
+    uint16_t soc = ((uint16_t)(data[13] >> 4) & 0x0F)
+                 | ((uint16_t)(data[14] & 0x3F) << 4);
+    result.soc = soc * 0.1f;
+
+    //ESP_LOGI("BMV", "V=%.2f I=%.3f SOC=%.1f AH=%.1f AUX=%.2f TTG=%u",
+    //    result.voltage, result.current, result.soc,
+    //    result.consumedAh, result.auxVoltage, result.remainingMinutes);
+
     return true;
 }
 

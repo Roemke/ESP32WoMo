@@ -20,8 +20,8 @@ static void bufferAdd(const char *line)
 // Öffentliche API
 // ----------------------------------------------------------------
 void logPrintln(const char *text)
-{
-    Serial.println(text);
+{ //umstellen, da staendig aerger mit serial
+    ESP_LOGI("APP", "%s", text);  // statt Serial.println
     bufferAdd(text);
 }
 
@@ -38,7 +38,7 @@ void logPrintf(const char *format, ...)
     vsnprintf(buf, sizeof(buf), format, args);
     va_end(args);
 
-    Serial.print(buf);
+    ESP_LOGI("APP", "%s", buf);  // statt Serial.print
 
     // Zeilenweise in den Puffer schreiben
     // (ein logPrintf kann mehrere \n enthalten)
@@ -59,11 +59,11 @@ void logPrintf(const char *format, ...)
 // ----------------------------------------------------------------
 void logDump()
 {
-    Serial.println("=== Log-Puffer ===");
+    ESP_LOGI("APP", "=== Log-Puffer ===");
     for (uint8_t i = 0; i < logCount; i++)
     {
         uint8_t idx = (logIndex + LOG_BUFFER_SIZE - logCount + i) % LOG_BUFFER_SIZE;
-        Serial.println(logBuffer[idx]);
+        ESP_LOGI("APP", "%s\n", logBuffer[idx]);
     }
-    Serial.println("==================");
+    ESP_LOGI("APP", "==================");
 }

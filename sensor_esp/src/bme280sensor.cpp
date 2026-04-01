@@ -95,7 +95,7 @@ void bme280Loop()
     bme280Data.valid        = true;
     bme280Data.lastUpdateMs = millis();
 
-    logPrintf("BME280: S=%d T=%.1f°C  H=%.1f%%  P=%.1fhPa\n",lastPollMs/1000, t, h, p);
+    //logPrintf("BME280: S=%d T=%.1f°C  H=%.1f%%  P=%.1fhPa\n",lastPollMs/1000, t, h, p);
 }
 
 // ----------------------------------------------------------------

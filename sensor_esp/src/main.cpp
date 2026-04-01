@@ -70,6 +70,7 @@ String buildLogJson(uint32_t from)
     return out;
 }
 
+//in den folgenden 3 routinen ein eigener task, damit der webserver nicht blockiert wird.
 void handleConfigPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, size_t, size_t)
 {
     JsonDocument doc;
@@ -84,8 +85,8 @@ void handleConfigPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, siz
     if (doc["bme_interval_ms"].is<int>()) sensorConfig.bme_interval_ms = doc["bme_interval_ms"];
     sensorConfigSave();
     req->send(200, "application/json", "{\"ok\":true}");
-    delay(500);
-    ESP.restart();
+    xTaskCreate([](void*){ vTaskDelay(pdMS_TO_TICKS(500)); ESP.restart(); },
+                "reboot", 1024, nullptr, 1, nullptr);
 }
 
 void handleWifiPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, size_t, size_t)
@@ -102,21 +103,20 @@ void handleWifiPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, size_
         req->send(400, "application/json", "{\"error\":\"SSID fehlt\"}");
         return;
     }
-    // erst static IP setzen, dann wifiSetCredentials – das speichert alles in einem Rutsch
     wifiData.use_static_ip = doc["use_static_ip"] | false;
     strlcpy(wifiData.static_ip, doc["static_ip"] | WIFI_STATIC_IP_DEFAULT, sizeof(wifiData.static_ip));
     strlcpy(wifiData.subnet,    doc["subnet"]    | WIFI_SUBNET_DEFAULT,    sizeof(wifiData.subnet));
-    wifiSetCredentials(ssid, doc["password"] | ""); //speichert mit, daher am Ende
+    wifiSetCredentials(ssid, doc["password"] | "");
     req->send(200, "application/json", "{\"ok\":true}");
-    delay(500);
-    ESP.restart();
+    xTaskCreate([](void*){ vTaskDelay(pdMS_TO_TICKS(500)); ESP.restart(); },
+                "reboot", 1024, nullptr, 1, nullptr);
 }
 
 void handleReboot(AsyncWebServerRequest *req)
 {
     req->send(200, "application/json", "{\"ok\":true}");
-    delay(500);
-    ESP.restart();
+    xTaskCreate([](void*){ vTaskDelay(pdMS_TO_TICKS(500)); ESP.restart(); },
+                "reboot", 1024, nullptr, 1, nullptr);
 }
 
 void addRoutes()
@@ -157,8 +157,9 @@ void addRoutes()
                 strlcpy(bleConfig.mppt2_bindkey, doc["mppt2_bindkey"], sizeof(bleConfig.mppt2_bindkey));
             bleConfigSave();
             req->send(200, "application/json", "{\"ok\":true}");
-            delay(500);
-            ESP.restart();
+            
+            xTaskCreate([](void*){ vTaskDelay(pdMS_TO_TICKS(500)); ESP.restart(); },
+                "reboot", 1024, nullptr, 1, nullptr);            
         }
     );    
     server.on("/api/log", HTTP_GET, [](AsyncWebServerRequest *req)
