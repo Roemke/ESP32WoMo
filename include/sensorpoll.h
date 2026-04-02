@@ -34,6 +34,12 @@ struct SensorData
     float   mppt2_pv_power;
     uint16_t mppt2_yield_today;
     char    mppt2_stateStr[24];
+    // Charger (Blue Smart IP22)
+    bool    charger_valid;
+    float   charger_voltage;
+    float   charger_current;
+    uint8_t charger_state;
+    char    charger_stateStr[24];
 };
 
 struct RingStats {
@@ -54,21 +60,25 @@ struct RingStats {
     float mppt2_v_min,  mppt2_v_max,  mppt2_v_avg;
     float mppt2_i_min,  mppt2_i_max,  mppt2_i_avg;
     float mppt2_pv_min, mppt2_pv_max, mppt2_pv_avg;
+    // Charger
+    float charger_v_min, charger_v_max, charger_v_avg;
+    float charger_i_min, charger_i_max, charger_i_avg;
     uint32_t hours;
     bool valid;
 };
 
 #define RING_INTERVAL_MS    2000
-#define RING_MAX_ENTRIES    86400  // 48h × 1800 Einträge/h
+#define RING_MAX_ENTRIES    75600  // 42h × 1800 Einträge/h, alle 2 sek
 
 struct RingEntry {
     float T, H, P;
     int   CO2;
     float V, I, SOC, PW, VS;
     // MPPT
-    float mppt1_V, mppt1_I, mppt1_PV;
-    float mppt2_V, mppt2_I, mppt2_PV;
+    float    mppt1_V, mppt1_I, mppt1_PV;
+    float    mppt2_V, mppt2_I, mppt2_PV;
     uint16_t mppt1_yield, mppt2_yield;
+    float    charger_V, charger_I;
 };
 
 extern RingEntry *ringBuffer;

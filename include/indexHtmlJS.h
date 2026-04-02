@@ -46,14 +46,14 @@ const char index_html[] PROGMEM = R"rawliteral(
   .status-box {
     background: #16213e; border: 1px solid #3a3a8e;
     border-radius: 8px; padding: 12px 20px;
-    min-width: 300px; flex: 1;
+    min-width: 250px; flex: 1;
   }
   /* ---- für die Statistiken --- */
   tr.alt { background: #1a2a4e; }
 
   /* ---- Key-Value Zeilen ---- */
   .kv { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
-  .kv label { min-width: 200px; flex-shrink: 0; color: #8888bb; }
+  .kv label { min-width: 135px; flex-shrink: 0; color: #8888bb; }
 
   /* ---- Badges ---- */
   .badge {
@@ -213,6 +213,15 @@ async function loadStats() {
       setText('st-mppt2pv-max', d.MPPT2_PV.max.toFixed(1) + ' W');
       setText('st-mppt2pv-avg', d.MPPT2_PV.avg.toFixed(1) + ' W');
     }
+    // Charger
+    if (d.CHARGER_V) {
+      setText('st-chargerv-min', d.CHARGER_V.min.toFixed(2) + ' V');
+      setText('st-chargerv-max', d.CHARGER_V.max.toFixed(2) + ' V');
+      setText('st-chargerv-avg', d.CHARGER_V.avg.toFixed(2) + ' V');
+      setText('st-chargeri-min', d.CHARGER_I.min.toFixed(2) + ' A');
+      setText('st-chargeri-max', d.CHARGER_I.max.toFixed(2) + ' A');
+      setText('st-chargeri-avg', d.CHARGER_I.avg.toFixed(2) + ' A');
+    }
 
   } catch(e) {}
 }  
@@ -263,6 +272,12 @@ async function poll() {
       setBadge('mppt2PV',    d.mppt2.PV       + ' W',  'neutral');
       setBadge('mppt2State', d.mppt2.stateStr || '---', 'neutral');
       setBadge('mppt2Y',     d.mppt2.yield    + ' Wh', 'neutral');
+    }
+    // Charger
+    if (d.charger && d.charger.valid) {
+      setBadge('chargerV',     d.charger.V        + ' V',  'neutral');
+      setBadge('chargerI',     d.charger.I        + ' A',  'neutral');
+      setBadge('chargerState', d.charger.stateStr || '---', 'neutral');
     }
     // Log
     if (d.log && d.log.length > 0) {
@@ -487,6 +502,13 @@ window.addEventListener('load', () => {
       <div class="kv"><label>Restlaufzeit:</label>    <span class="badge neutral" id="valTTG">---</span></div>
       <div class="kv"><label>Starterbatterie:</label> <span class="badge neutral" id="valVS">---</span></div>
     </div>
+    <!-- Charger -->
+    <div class="status-box">
+      <h2>Ladegerät (IP22)</h2>
+      <div class="kv"><label>Spannung:</label> <span class="badge neutral" id="chargerV">---</span></div>
+      <div class="kv"><label>Strom:</label>    <span class="badge neutral" id="chargerI">---</span></div>
+      <div class="kv"><label>Status:</label>   <span class="badge neutral" id="chargerState">---</span></div>
+    </div>
     <!-- MPPT1 -->
     <div class="status-box">
       <h2>Solar MPPT1</h2>
@@ -506,7 +528,9 @@ window.addEventListener('load', () => {
       <div class="kv"><label>Status:</label>      <span class="badge neutral" id="mppt2State">---</span></div>
       <div class="kv"><label>Ertrag heute:</label><span class="badge neutral" id="mppt2Y">---</span></div>
     </div>
- 
+
+    
+
   </div>
   <!-- Stats unterhalb der Sensordaten -->
   <div style="margin-top:16px">
@@ -522,7 +546,7 @@ window.addEventListener('load', () => {
           <option value="12" selected>12h</option>
           <option value="16">16h</option>
           <option value="24">24h</option>
-          <option value="48">48h</option>
+          <option value="42">42h</option>
         </select>
       </h2>
       <table style="width:100%;border-collapse:collapse;font-size:0.9em">
@@ -582,7 +606,15 @@ window.addEventListener('load', () => {
         <tr><td>MPPT2 Leistung</td>
           <td style="text-align:right" id="st-mppt2pv-min">-</td>
           <td style="text-align:right" id="st-mppt2pv-max">-</td>
-          <td style="text-align:right" id="st-mppt2pv-avg">-</td></tr>  
+          <td style="text-align:right" id="st-mppt2pv-avg">-</td></tr>
+        <tr class="alt"><td>Charger Spannung</td>
+          <td style="text-align:right" id="st-chargerv-min">-</td>
+          <td style="text-align:right" id="st-chargerv-max">-</td>
+          <td style="text-align:right" id="st-chargerv-avg">-</td></tr>
+        <tr><td>Charger Strom</td>
+          <td style="text-align:right" id="st-chargeri-min">-</td>
+          <td style="text-align:right" id="st-chargeri-max">-</td>
+          <td style="text-align:right" id="st-chargeri-avg">-</td></tr>
       </table>
     </div>
   </div>

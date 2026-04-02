@@ -5,6 +5,7 @@
 #include <ElegantOTA.h>
 #include <esp_task_wdt.h>
 
+
 #include "wifi.h"
 #include "wled.h"
 //#include "vedirect.h" //raus macht ein anderer esp
@@ -19,6 +20,7 @@
 //#include "ui_history.h" ist raus 
 #include <SD.h> //für dateioperationen per webserver, hat logisch nichts mit sdcard.h zu tun.
 #include "ui_details.h"
+#include "ui_charger.h"
 
 
 AsyncWebServer server(80);
@@ -92,6 +94,17 @@ String buildDataJson()
         m2["PV"]    = sensorData.mppt2_pv_power;
         m2["stateStr"] = sensorData.mppt2_stateStr;
         m2["yield"] = sensorData.mppt2_yield_today;
+    }
+
+    // Charger
+    JsonObject ch = doc["charger"].to<JsonObject>();
+    ch["valid"] = sensorData.charger_valid;
+    if (sensorData.charger_valid)
+    {
+        ch["V"]        = sensorData.charger_voltage;
+        ch["I"]        = sensorData.charger_current;
+        ch["state"]    = sensorData.charger_state;
+        ch["stateStr"] = sensorData.charger_stateStr;
     }
 
     // CO2
@@ -197,9 +210,11 @@ void handleStats(AsyncWebServerRequest *req)
     addStats("MPPT1_V",  ringStats.mppt1_v_min,  ringStats.mppt1_v_max,  ringStats.mppt1_v_avg);
     addStats("MPPT1_I",  ringStats.mppt1_i_min,  ringStats.mppt1_i_max,  ringStats.mppt1_i_avg);
     addStats("MPPT1_PV", ringStats.mppt1_pv_min, ringStats.mppt1_pv_max, ringStats.mppt1_pv_avg);
-    addStats("MPPT2_V",  ringStats.mppt2_v_min,  ringStats.mppt2_v_max,  ringStats.mppt2_v_avg);
-    addStats("MPPT2_I",  ringStats.mppt2_i_min,  ringStats.mppt2_i_max,  ringStats.mppt2_i_avg);
-    addStats("MPPT2_PV", ringStats.mppt2_pv_min, ringStats.mppt2_pv_max, ringStats.mppt2_pv_avg);
+    addStats("MPPT2_V",    ringStats.mppt2_v_min,    ringStats.mppt2_v_max,    ringStats.mppt2_v_avg);
+    addStats("MPPT2_I",    ringStats.mppt2_i_min,    ringStats.mppt2_i_max,    ringStats.mppt2_i_avg);
+    addStats("MPPT2_PV",   ringStats.mppt2_pv_min,   ringStats.mppt2_pv_max,   ringStats.mppt2_pv_avg);
+    addStats("CHARGER_V",  ringStats.charger_v_min,  ringStats.charger_v_max,  ringStats.charger_v_avg);
+    addStats("CHARGER_I",  ringStats.charger_i_min,  ringStats.charger_i_max,  ringStats.charger_i_avg);
 
     
 
@@ -407,7 +422,8 @@ void setup() {
     sdSetup();
     Serial.println("SD OK");
 
-
+    Serial.printf("Heap vor Display: %lu \n", (unsigned long)ESP.getFreeHeap());
+    Serial.printf("PSRAM vor Display: %lu \n", (unsigned long)ESP.getFreePsram());
     
     smartdisplay_init();
 
@@ -420,7 +436,7 @@ void setup() {
     uiMainSetup();
     Serial.printf("Heap nach uimain: %lu\n", ESP.getFreeHeap());
 
-    sdFillRingBuffer(48); //ringbuffer füllen, falls aktuelle zeiten da. 
+    sdFillRingBuffer(RING_MAX_ENTRIES/1800); //ringbuffer füllen, falls aktuelle zeiten da. 
     Serial.printf("Heap nach ringbuffer: %lu\n", ESP.getFreeHeap());
     logPrintf("PSRAM: %lu bytes\n", (unsigned long)ESP.getPsramSize());
     logPrintln("Setup ist durch");    
@@ -430,7 +446,7 @@ void loop() {
     auto const now = millis();
    
     static uint32_t lastHeapLog = 0;
-    if (millis() - lastHeapLog > 5000) // alle 30 Sekunden
+    if (millis() - lastHeapLog > 30000) // alle 30 Sekunden
     {
         lastHeapLog = millis();
         logPrintf("Heap: %lu frei, min: %lu | PSRAM: %lu frei\n",
@@ -451,7 +467,8 @@ void loop() {
     //wledLoop();
 
     // UI alle 2 Sekunden aktualisieren            
-    uiSensorenUpdate();  
+    uiSensorenUpdate();
+    uiChargerUpdate();
     uiDetailsUpdate();
     
 }

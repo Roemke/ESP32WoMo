@@ -4,6 +4,8 @@
 .vscode/launch.json
 .vscode/ipch
 case
+images
 geheim.txt
 .claude
+.claudeignore
 *~

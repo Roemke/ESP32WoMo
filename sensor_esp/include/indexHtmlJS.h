@@ -22,27 +22,37 @@ const char index_html[] PROGMEM = R"rawliteral(
 <style>
   body {
     font-family: Arial, sans-serif;
-    font-size: 1.4em;
+    font-size: 1.2em;
     margin: 0; padding: 10px;
     background: #1a1a2e;
     color: #eeeeff;
   }
   h2 { color: #aaaaff; margin: 12px 0 8px 0; }
+  h2 span.smaller { font-size: 70%%;}
 
   /* ---- Tabs ---- */
   .tab { overflow: hidden; background: #0d0d1a; border-bottom: 2px solid #3a3a8e; }
   .tab button {
     background: inherit; border: none; outline: none;
-    cursor: pointer; padding: 12px 20px;
-    color: #8888bb; font-size: 1em;
+    cursor: pointer; padding: 12px 16px;
+    color: #8888bb; font-size: 0.9em;
   }
   .tab button:hover  { background: #1a1a3e; color: #ffffff; }
   .tab button.active { background: #16213e; color: #ffffff; }
   .tabcontent { display: none; padding: 16px; }
 
+  /* ---- Zweispaltig für Sensoren ---- */
+  .status-grid { display: flex; gap: 20px; flex-wrap: wrap; }
+  .status-box {
+    background: #16213e; border: 1px solid #3a3a8e;
+    border-radius: 8px; padding: 12px 20px;
+    min-width: 250px; flex: 1;
+  }
+
   /* ---- Key-Value Zeilen ---- */
   .kv { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
-  .kv label { min-width: 200px; flex-shrink: 0; color: #8888bb; }
+  .kv.sep { margin-top: 16px; padding-top: 16px; border-top: 1px solid #3a3a8e; }
+  .kv label { min-width: 135px; flex-shrink: 0; color: #8888bb; }
 
   /* ---- Badges ---- */
   .badge {
@@ -349,39 +359,50 @@ window.addEventListener('load', () => {
 <!-- TAB: SENSOREN                                               -->
 <!-- ============================================================ -->
 <div id="sensoren" class="tabcontent">
-  <h2>Klima (BME280)</h2>
-  <div class="kv"><label>Temperatur:</label>     <span class="badge neutral" id="valTemp">---</span></div>
-  <div class="kv"><label>Feuchte:</label>        <span class="badge neutral" id="valHum">---</span></div>
-  <div class="kv"><label>Luftdruck:</label>      <span class="badge neutral" id="valPress">---</span></div>
-  <h2>CO2 (SCD41)</h2>
-  <div class="kv"><label>CO2:</label>         <span class="badge neutral" id="scd41Co2">---</span></div>
-  <div class="kv"><label>Temperatur:</label>  <span class="badge neutral" id="scd41Temp">---</span></div>
-  <div class="kv"><label>Feuchte:</label>     <span class="badge neutral" id="scd41Hum">---</span></div>
-  <h2>Batterie (BMV712)</h2>
-  <div class="kv"><label>Spannung:</label>       <span class="badge neutral" id="valV">---</span></div>
-  <div class="kv"><label>Strom:</label>          <span class="badge neutral" id="valI">---</span></div>
-  <div class="kv"><label>Leistung:</label>       <span class="badge neutral" id="valP">---</span></div>
-  <div class="kv"><label>SoC:</label>            <span class="badge neutral" id="valSOC">---</span></div>
-  <div class="kv"><label>Restlaufzeit:</label>   <span class="badge neutral" id="valTTG">---</span></div>
-  <div class="kv"><label>Starterbatterie:</label><span class="badge neutral" id="valVS">---</span></div>
-  <h2>Ladegerät (IP22)</h2>
-  <div class="kv"><label>Spannung:</label>    <span class="badge neutral" id="chargerV">---</span></div>
-  <div class="kv"><label>Strom:</label>       <span class="badge neutral" id="chargerI">---</span></div>
-  <div class="kv"><label>Status:</label>      <span class="badge neutral" id="chargerState">---</span></div>
-  <h2>Solar MPPT1</h2>
-  <div class="kv"><label>Spannung:</label>    <span class="badge neutral" id="mppt1V">---</span></div>
-  <div class="kv"><label>Strom:</label>       <span class="badge neutral" id="mppt1I">---</span></div>
-  <div class="kv"><label>Leistung PV:</label> <span class="badge neutral" id="mppt1PV">---</span></div>
-  <div class="kv"><label>Status:</label> <span class="badge neutral" id="mppt1State">---</span></div>
-  
-  <div class="kv"><label>Ertrag heute:</label><span class="badge neutral" id="mppt1Y">---</span></div>
-
-  <h2>Solar MPPT2</h2>
-  <div class="kv"><label>Spannung:</label>    <span class="badge neutral" id="mppt2V">---</span></div>
-  <div class="kv"><label>Strom:</label>       <span class="badge neutral" id="mppt2I">---</span></div>
-  <div class="kv"><label>Leistung PV:</label> <span class="badge neutral" id="mppt2PV">---</span></div>
-  <div class="kv"><label>Status:</label> <span class="badge neutral" id="mppt2State">---</span></div>
-  <div class="kv"><label>Ertrag heute:</label><span class="badge neutral" id="mppt2Y">---</span></div>
+  <div class="status-grid">
+    <div class="status-box">
+      <h2>Klima <span class="smaller">(BME280/SCD41)</span></h2>
+      <div class="kv sep">BME 280</div>
+      <div class="kv"><label>Temperatur:</label>     <span class="badge neutral" id="valTemp">---</span></div>
+      <div class="kv"><label>Feuchte:</label>        <span class="badge neutral" id="valHum">---</span></div>
+      <div class="kv"><label>Luftdruck:</label>      <span class="badge neutral" id="valPress">---</span></div>      
+      <div class="kv sep">SCD 41</div>
+      <div class="kv"><label>CO2:</label>         <span class="badge neutral" id="scd41Co2">---</span></div>
+      <div class="kv"><label>Temperatur:</label>  <span class="badge neutral" id="scd41Temp">---</span></div>
+      <div class="kv"><label>Feuchte:</label>     <span class="badge neutral" id="scd41Hum">---</span></div>
+    </div>
+    <div class="status-box">
+      <h2>Batterie (BMV712)</h2>
+      <div class="kv"><label>Spannung:</label>       <span class="badge neutral" id="valV">---</span></div>
+      <div class="kv"><label>Strom:</label>          <span class="badge neutral" id="valI">---</span></div>
+      <div class="kv"><label>Leistung:</label>       <span class="badge neutral" id="valP">---</span></div>
+      <div class="kv"><label>SoC:</label>            <span class="badge neutral" id="valSOC">---</span></div>
+      <div class="kv"><label>Restlaufzeit:</label>   <span class="badge neutral" id="valTTG">---</span></div>
+      <div class="kv"><label>Starterbatterie:</label><span class="badge neutral" id="valVS">---</span></div>
+    </div>
+    <div class="status-box">
+      <h2>Ladegerät (IP22)</h2>
+      <div class="kv"><label>Spannung:</label> <span class="badge neutral" id="chargerV">---</span></div>
+      <div class="kv"><label>Strom:</label>    <span class="badge neutral" id="chargerI">---</span></div>
+      <div class="kv"><label>Status:</label>   <span class="badge neutral" id="chargerState">---</span></div>
+    </div>
+    <div class="status-box">
+      <h2>Solar MPPT1</h2>
+      <div class="kv"><label>Spannung:</label>    <span class="badge neutral" id="mppt1V">---</span></div>
+      <div class="kv"><label>Strom:</label>       <span class="badge neutral" id="mppt1I">---</span></div>
+      <div class="kv"><label>Leistung PV:</label> <span class="badge neutral" id="mppt1PV">---</span></div>
+      <div class="kv"><label>Status:</label>      <span class="badge neutral" id="mppt1State">---</span></div>
+      <div class="kv"><label>Ertrag heute:</label><span class="badge neutral" id="mppt1Y">---</span></div>
+    </div>
+    <div class="status-box">
+      <h2>Solar MPPT2</h2>
+      <div class="kv"><label>Spannung:</label>    <span class="badge neutral" id="mppt2V">---</span></div>
+      <div class="kv"><label>Strom:</label>       <span class="badge neutral" id="mppt2I">---</span></div>
+      <div class="kv"><label>Leistung PV:</label> <span class="badge neutral" id="mppt2PV">---</span></div>
+      <div class="kv"><label>Status:</label>      <span class="badge neutral" id="mppt2State">---</span></div>
+      <div class="kv"><label>Ertrag heute:</label><span class="badge neutral" id="mppt2Y">---</span></div>
+    </div>
+  </div>
 </div>
 
 

@@ -43,6 +43,8 @@ void calcRingStats(uint32_t hours)
     ringStats.mppt2_v_min  = ringStats.mppt2_v_max  = f.mppt2_V;
     ringStats.mppt2_i_min  = ringStats.mppt2_i_max  = f.mppt2_I;
     ringStats.mppt2_pv_min = ringStats.mppt2_pv_max = f.mppt2_PV;
+    ringStats.charger_v_min = ringStats.charger_v_max = f.charger_V;
+    ringStats.charger_i_min = ringStats.charger_i_max = f.charger_I;
     
     // Rückwärts durch den Ringpuffer – neueste Einträge zuerst
     ringStats.t_avg = ringStats.h_avg = ringStats.p_avg = 0;
@@ -50,6 +52,7 @@ void calcRingStats(uint32_t hours)
     ringStats.v_avg = ringStats.i_avg = ringStats.soc_avg = ringStats.pw_avg = ringStats.vs_avg = 0;
     ringStats.mppt1_v_avg = ringStats.mppt1_i_avg = ringStats.mppt1_pv_avg = 0;
     ringStats.mppt2_v_avg = ringStats.mppt2_i_avg = ringStats.mppt2_pv_avg = 0;
+    ringStats.charger_v_avg = ringStats.charger_i_avg = 0;
     
     for (uint32_t i = 0; i < entries; i++)
     {
@@ -126,6 +129,15 @@ void calcRingStats(uint32_t hours)
             ringStats.mppt2_pv_max = max(ringStats.mppt2_pv_max, e.mppt2_PV);
             ringStats.mppt2_pv_avg += e.mppt2_PV;
         }
+        if (sensorData.charger_valid)
+        {
+            ringStats.charger_v_min = min(ringStats.charger_v_min, e.charger_V);
+            ringStats.charger_v_max = max(ringStats.charger_v_max, e.charger_V);
+            ringStats.charger_v_avg += e.charger_V;
+            ringStats.charger_i_min = min(ringStats.charger_i_min, e.charger_I);
+            ringStats.charger_i_max = max(ringStats.charger_i_max, e.charger_I);
+            ringStats.charger_i_avg += e.charger_I;
+        }
     }
 
     // Durchschnitt berechnen
@@ -161,6 +173,14 @@ void calcRingStats(uint32_t hours)
         ringStats.mppt2_i_avg  /= mppt2_cnt;
         ringStats.mppt2_pv_avg /= mppt2_cnt;
     }
+    // charger_cnt nutzt entries direkt (kein eigener Zähler nötig, da valid-Flag global)
+    if (sensorData.charger_valid && entries > 0)
+    {
+        ringStats.charger_v_avg /= entries;
+        ringStats.charger_i_avg /= entries;
+    }
+    else
+        ringStats.charger_v_avg = ringStats.charger_i_avg = 0;
 
     ringStats.hours = hours;
     ringStats.valid = true;
@@ -251,6 +271,16 @@ void sensorPollLoop()
         strlcpy(sensorData.mppt2_stateStr, doc["mppt2"]["stateStr"] | "---", sizeof(sensorData.mppt2_stateStr));
     }
 
+    // Charger (Blue Smart IP22)
+    sensorData.charger_valid = doc["charger"]["valid"] | false;
+    if (sensorData.charger_valid)
+    {
+        sensorData.charger_voltage = doc["charger"]["V"]        | 0.0f;
+        sensorData.charger_current = doc["charger"]["I"]        | 0.0f;
+        sensorData.charger_state   = doc["charger"]["state"]    | 0;
+        strlcpy(sensorData.charger_stateStr, doc["charger"]["stateStr"] | "---", sizeof(sensorData.charger_stateStr));
+    }
+
     // CO2
     sensorData.co2_valid = doc["co2"]["valid"] | false;
     if (sensorData.co2_valid)
@@ -278,6 +308,8 @@ void sensorPollLoop()
         e.mppt2_I     = sensorData.mppt2_current;
         e.mppt2_PV    = sensorData.mppt2_pv_power;
         e.mppt2_yield = sensorData.mppt2_yield_today;
+        e.charger_V   = sensorData.charger_voltage;
+        e.charger_I   = sensorData.charger_current;
         ringHead = (ringHead + 1) % RING_MAX_ENTRIES;
         if (ringCount < RING_MAX_ENTRIES) ringCount++;
     }    

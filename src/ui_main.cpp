@@ -1,6 +1,7 @@
 #include <esp32_smartdisplay.h>
 #include "ui_main.h"
 #include "ui_details.h"
+#include "ui_charger.h"
 //#include "ui_history.h"
 #include "wifi.h"
 
@@ -29,9 +30,10 @@ void uiMainSetup()
 
 
     // Tabs anlegen
-    lv_obj_t *tab_sensoren   = lv_tabview_add_tab(ui_tabview, "Sensoren");
-    lv_obj_t *tab_stat      = lv_tabview_add_tab(ui_tabview, "Details");
-    lv_obj_t *tab_licht      = lv_tabview_add_tab(ui_tabview, "Beleuchtung");
+    lv_obj_t *tab_sensoren = lv_tabview_add_tab(ui_tabview, "Sensoren");
+    lv_obj_t *tab_charger  = lv_tabview_add_tab(ui_tabview, "Charger");
+    lv_obj_t *tab_stat     = lv_tabview_add_tab(ui_tabview, "Details");
+    lv_obj_t *tab_licht    = lv_tabview_add_tab(ui_tabview, "Beleuchtung");
     //lv_obj_t *tab_bat_hist   = lv_tabview_add_tab(ui_tabview, "Bat-Verlauf");
     //lv_obj_t *tab_klima_hist = lv_tabview_add_tab(ui_tabview, "Klima-Verlauf");
 
@@ -62,7 +64,10 @@ void uiMainSetup()
     uiSensorenSetup(tab_sensoren);
     uiSensorenSetIP(wifiGetIP());
 
-    //Details / Statistik
+    // Tab Charger – ui_charger.cpp
+    uiChargerSetup(tab_charger);
+
+    // Details / Statistik
     uiDetailsSetup(tab_stat);
  
     // Klima und Batterie setup
