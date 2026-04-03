@@ -21,8 +21,8 @@
 // }
 // WLED JSON-API: POST /json/state  mit {"on":true} oder {"on":false}
 #define WLED_CONFIG_PATH        "/wled.json"
-#define WLED_DEFAULT_INNEN_IP   "192.168.4.2"
-#define WLED_DEFAULT_AUSSEN_IP  "192.168.4.3"
+#define WLED_DEFAULT_INNEN_IP   "192.168.4.6"
+#define WLED_DEFAULT_AUSSEN_IP  "192.168.4.7"
 #define WLED_DEFAULT_PORT       80
 
 // ---- WiFi --------------------------------------------------
@@ -41,7 +41,7 @@
 #define HTTP_PORT           80
 
 // ---- Sensor-ESP --------------------------------------------
-#define SENSOR_ESP_IP_DEFAULT   "192.168.0.88"
+#define SENSOR_ESP_IP_DEFAULT   "192.168.42.3"
 #define SENSOR_POLL_INTERVAL_MS 5000
 
 // ---- Logging -----------------------------------------------

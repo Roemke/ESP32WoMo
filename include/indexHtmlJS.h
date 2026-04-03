@@ -29,7 +29,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     color: #eeeeff;
   }
   h2 { color: #aaaaff; margin: 12px 0 8px 0; }
-
+  h4 { color: #aaaaff; margin: 12px 0 8px 0; }
   /* ---- Tabs ---- */
   .tab { overflow: hidden; background: #0d0d1a; border-bottom: 2px solid #3a3a8e; }
   .tab button {
@@ -679,19 +679,19 @@ window.addEventListener('load', () => {
 <!-- ============================================================ -->
 
 <div id="beleuchtung" class="tabcontent">
-  <div style="display:flex; gap:10px; flex-wrap:wrap;">
-    <div style="flex:1; min-width:300px;">
-      <h4 style="text-align:center; color:#aaaaff; margin-bottom:8px;">Innen</h4>
-      <iframe src="http://%WLED_INNEN_IP%" 
-              style="width:100%; height:600px; border:1px solid #3a3a8e; border-radius:8px;">
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <div style="flex:1; padding-left:2%%; min-width:300px;height:650px; border:1px solid #3a3a8e; border-radius:8px;">
+        <h4>WLED Innen</h4> 
+        <iframe src="http://%WLED_INNEN_IP%" 
+            style="min-width:300px; width:90%%; height:90%%; ">        
       </iframe>
-    </div>
-    <div style="flex:1; min-width:300px;">
-      <h4 style="text-align:center; color:#aaaaff; margin-bottom:8px;">Außen</h4>
-      <iframe src="http://%WLED_AUSSEN_IP%" 
-              style="width:100%; height:600px; border:1px solid #3a3a8e; border-radius:8px;">
-      </iframe>
-    </div>
+      </div>
+      <div style="flex:1; padding-left:2%%; min-width:300px;height:650px; border:1px solid #3a3a8e; border-radius:8px;">
+      <h4>WLED Außen</h4>
+        <iframe src="http://%WLED_AUSSEN_IP%" 
+            style="min-width:300px; width:90%%; height:90%%; ">
+        </iframe>
+      </div>
   </div>
 </div>
 
