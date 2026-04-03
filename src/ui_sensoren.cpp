@@ -1,5 +1,6 @@
 #include "ui_sensoren.h"
 #include "sensorpoll.h"
+#include "SD.h"
 
 // ----------------------------------------------------------------
 // Private UI-Handles – nur in dieser Datei sichtbar
@@ -18,6 +19,16 @@ static lv_obj_t *s_co2     = nullptr;
 static lv_obj_t *s_ip      = nullptr;
 
 
+//hilfsfunktion zum laden von bildern in den psram, damit lvgl die bilder direkt von dort laden kann. spart ram und ist schneller als sd lesen.
+
+static uint8_t  *s_imgLeft      = nullptr;
+static uint8_t  *s_imgRight     = nullptr;
+static uint32_t  s_imgLeftSize  = 0;
+static uint32_t  s_imgRightSize = 0;
+
+LV_IMAGE_DECLARE(earthSmall);
+LV_IMAGE_DECLARE(tardisSmall);
+
 // ----------------------------------------------------------------
 // Hilfsfunktion: Panel erstellen
 // ----------------------------------------------------------------
@@ -26,7 +37,7 @@ static lv_obj_t *makePanel(lv_obj_t *parent, int x, int y, int w, int h)
     lv_obj_t *p = lv_obj_create(parent);
     lv_obj_set_size(p, w, h);
     lv_obj_set_pos(p, x, y);
-    lv_obj_set_style_bg_color(p, lv_color_hex(0x16213E), 0);
+    lv_obj_set_style_bg_color(p, lv_color_hex(0x0A0A1A), 0);
     lv_obj_set_style_bg_opa(p, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(p, lv_color_hex(0x3A3A8E), 0);
     lv_obj_set_style_border_width(p, 1, 0);
@@ -47,6 +58,7 @@ static void makeTitle(lv_obj_t *parent, const char *text)
     lv_obj_set_style_text_font(t, &lv_font_montserrat_18, 0);
     lv_obj_align(t, LV_ALIGN_TOP_MID, 0, 8);
 }
+
 
 // ----------------------------------------------------------------
 // Hilfsfunktion: Wert-Zeile – gibt Value-Label zurück
@@ -73,6 +85,8 @@ static lv_obj_t *makeRow(lv_obj_t *parent, const char *key, int y)
 void uiSensorenSetup(lv_obj_t *tab)
 {
     // Tab-Hintergrund
+    //bilder in buffer 
+    
     lv_obj_set_style_bg_color(tab, lv_color_hex(0x1A1A2E), 0);
     lv_obj_set_style_bg_opa(tab, LV_OPA_COVER, 0);
     lv_obj_set_style_pad_all(tab, 4, 0);
@@ -80,12 +94,19 @@ void uiSensorenSetup(lv_obj_t *tab)
     lv_obj_add_flag(tab, LV_OBJ_FLAG_SCROLLABLE);
     // Nutzbare Fläche: 800 × 440px (480px - 40px Tabs)
     // Links: Batterie 388×432, Rechts: Klima 388×432, Abstand 8px
-
     // Abstaende Zeilen
     const int row_start = 34;
     const int row_step  = 62;
     // ---- Klima-Panel (links) ------------------------------------
     lv_obj_t *p_klima = makePanel(tab, 0, 0, 388, 392);
+
+    // Bild direkt als Objekt ins Panel, soll im psram liegen
+    lv_obj_t *imgLeft = lv_image_create(p_klima);
+    //lv_image_set_src(imgLeft,  "S:/earthSmall.bin");
+    lv_image_set_src(imgLeft,  &earthSmall);
+    lv_obj_set_pos(imgLeft, 50, 190);
+    lv_obj_move_to_index(imgLeft, 0);  // ganz nach unten in der Z-Order
+
     makeTitle(p_klima, "Klima");
 
     s_temp  = makeRow(p_klima, "Temperatur:", row_start);
@@ -103,6 +124,12 @@ void uiSensorenSetup(lv_obj_t *tab)
     // ---- Batterie-Panel (rechts) ----------------------------------
     lv_obj_t *p_bat = makePanel(tab, 404, 0, 388, 392);
     makeTitle(p_bat, "Batterie (BMV712)");
+    // Bild direkt als Objekt ins Panel
+    lv_obj_t *imgRight = lv_image_create(p_bat);
+    //lv_image_set_src(imgRight,  "S:/tardisSmall.bin");
+    lv_image_set_src(imgRight,  &tardisSmall);
+    lv_obj_set_pos(imgRight, 150, 100);
+    lv_obj_move_to_index(imgRight, 0);  // ganz nach unten in der Z-Order
 
     
 

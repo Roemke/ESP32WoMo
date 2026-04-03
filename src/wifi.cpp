@@ -25,6 +25,8 @@ void wifiSaveData()
     doc["static_ip"]     = wifiData.static_ip;
     doc["subnet"]        = wifiData.subnet;
     doc["magic"]    = wifiData.magic;
+    doc["gateway"] = wifiData.gateway;
+    doc["dns"]     = wifiData.dns;
     
     serializeJson(doc, f);
     f.close();
@@ -60,6 +62,8 @@ static bool loadWifiData()
     wifiData.use_static_ip = doc["use_static_ip"] | false;
     strncpy(wifiData.static_ip, doc["static_ip"] | WIFI_STATIC_IP_DEFAULT, sizeof(wifiData.static_ip) - 1);
     strncpy(wifiData.subnet,    doc["subnet"]     | WIFI_SUBNET_DEFAULT,    sizeof(wifiData.subnet)    - 1);
+    strncpy(wifiData.gateway, doc["gateway"] | WIFI_GATEWAY_DEFAULT, sizeof(wifiData.gateway) - 1);
+    strncpy(wifiData.dns,     doc["dns"]     | WIFI_DNS_DEFAULT,     sizeof(wifiData.dns)     - 1);
     
     if (wifiData.magic != 0x43)
     {
@@ -116,10 +120,12 @@ static bool connectSTA()
     WiFi.setAutoReconnect(true);
     if (wifiData.use_static_ip)
     {
-        IPAddress ip, sn;
+        IPAddress ip, sn, gw, dns;
         ip.fromString(wifiData.static_ip);
         sn.fromString(wifiData.subnet);
-        WiFi.config(ip, IPAddress(0,0,0,0), sn);
+        gw.fromString(wifiData.gateway);
+        dns.fromString(wifiData.dns);
+        WiFi.config(ip, gw, sn, dns);
     }
 
     unsigned long start = millis();
@@ -135,7 +141,6 @@ static bool connectSTA()
     {
         logPrintf("WiFi: Verbunden, IP=%s\n", WiFi.localIP().toString().c_str());
         wifiMode = "STA, IP " + WiFi.localIP().toString();
-        // NTP synchronisieren
         configTime(0, 0, "pool.ntp.org", "de.pool.ntp.org");
         setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
         tzset();

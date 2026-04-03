@@ -37,6 +37,8 @@ String processor(const String& var)
     if (var == "WIFI_USE_STATIC") return wifiData.use_static_ip ? "checked" : "";
     if (var == "WIFI_STATIC_IP")  return String(wifiData.static_ip);
     if (var == "WIFI_SUBNET")     return String(wifiData.subnet);
+    if (var == "WIFI_GATEWAY") return String(wifiData.gateway);
+    if (var == "WIFI_DNS")     return String(wifiData.dns);
     if (var == "SENSOR_ESP_IP")   return String(appConfig.sensor_esp_ip);
     if (var == "WLED_INNEN_IP")   return String(appConfig.wled_innen_ip);
     if (var == "WLED_AUSSEN_IP")  return String(appConfig.wled_aussen_ip);
@@ -153,9 +155,12 @@ void handleWifiPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, size_
         req->send(400, "application/json", "{\"error\":\"SSID fehlt\"}");
         return;
     }
+    
     wifiData.use_static_ip = doc["use_static_ip"] | false;
     strlcpy(wifiData.static_ip, doc["static_ip"] | WIFI_STATIC_IP_DEFAULT, sizeof(wifiData.static_ip));
     strlcpy(wifiData.subnet,    doc["subnet"]    | WIFI_SUBNET_DEFAULT,    sizeof(wifiData.subnet));
+    strlcpy(wifiData.gateway,   doc["gateway"]   | WIFI_GATEWAY_DEFAULT,   sizeof(wifiData.gateway));
+    strlcpy(wifiData.dns,       doc["dns"]       | WIFI_DNS_DEFAULT,       sizeof(wifiData.dns));
     wifiSetCredentials(ssid, doc["password"] | "");
     req->send(200, "application/json", "{\"ok\":true}");
     delay(500);
@@ -376,7 +381,8 @@ void addRoutes()
 }
 
 //normal setup
-
+// Stack-Größe für loopTask überschreiben
+SET_LOOP_TASK_STACK_SIZE(16384);
 void setup() {
     Serial.begin(115200);
     
@@ -388,20 +394,20 @@ void setup() {
     Serial.printf("Heap am Anfang: %lu\n", ESP.getFreeHeap());
     appConfigLoad();
     Serial.println("AppConfig OK");
-
-    Serial.printf("Heap vor BLE: %lu\n", ESP.getFreeHeap());
-    Serial.printf("Heap nach BLE: %lu\n", ESP.getFreeHeap());
-
+    
+    
         
     wifiSetup();
     Serial.printf("Heap nach wifi: %lu\n", ESP.getFreeHeap());
-
     Serial.println("WiFi OK");
-    // Auf NTP warten – max 5 Sekunden
+    // Auf NTP warten – max 15 Sekunden
     uint32_t ntpStart = millis();
-    while (!wifiTimeValid() && millis() - ntpStart < 5000)
+    while (!wifiTimeValid() && millis() - ntpStart < 15000)
         delay(100);
     Serial.printf("NTP: %s\n", wifiTimeValid() ? "sync" : "kein sync");
+  
+    sdSetup();
+    Serial.println("SD OK");
 
     //wledSetup();
     Serial.println("WLED noch zu tun ");   
@@ -419,8 +425,7 @@ void setup() {
     sensorPollSetup(); //fuer die stats nötig
     Serial.printf("Heap nach Pollsetup: %lu\n", ESP.getFreeHeap());
 
-    sdSetup();
-    Serial.println("SD OK");
+ 
 
     Serial.printf("Heap vor Display: %lu \n", (unsigned long)ESP.getFreeHeap());
     Serial.printf("PSRAM vor Display: %lu \n", (unsigned long)ESP.getFreePsram());
@@ -446,6 +451,13 @@ void loop() {
     auto const now = millis();
    
     static uint32_t lastHeapLog = 0;
+    // In loop(), einmalig nach NTP suchen:
+    static bool ntpSynced = false;
+    if (!ntpSynced && wifiTimeValid()) {
+        ntpSynced = true;
+        ESP_LOGI("NTP", "sync nachträglich");
+        // sdFillRingBuffer nochmal aufrufen falls vorher kein Sync
+    }
     if (millis() - lastHeapLog > 30000) // alle 30 Sekunden
     {
         lastHeapLog = millis();

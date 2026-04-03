@@ -13,6 +13,8 @@ struct WifiData
     char    password[64];
     bool    use_static_ip;
     char    static_ip[16];
+    char    gateway[16];   // neu
+    char    dns[16];       // neu
     char    subnet[16];
     uint8_t magic;
 };

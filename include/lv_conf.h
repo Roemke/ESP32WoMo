@@ -558,7 +558,7 @@
  *  If size is not set to 0, the decoder will fail to decode when the cache is full.
  *  If size is 0, the cache function is not enabled and the decoded memory will be
  *  released immediately after use. */
-#define LV_CACHE_DEF_SIZE       0
+#define LV_CACHE_DEF_SIZE   0
 
 /** Default number of image header cache entries. The cache is used to store the headers of images
  *  The main logic is like `LV_CACHE_DEF_SIZE` but for image headers. */
@@ -975,9 +975,9 @@
 #endif
 
 /** API for Arduino Sd. */
-#define LV_USE_FS_ARDUINO_SD 0
+#define LV_USE_FS_ARDUINO_SD 1
 #if LV_USE_FS_ARDUINO_SD
-    #define LV_FS_ARDUINO_SD_LETTER '\0'  /**< Set an upper-case driver-identifier letter for this driver (e.g. 'A'). */
+    #define LV_FS_ARDUINO_SD_LETTER 'S'  /**< Set an upper-case driver-identifier letter for this driver (e.g. 'A'). */
     #define LV_FS_ARDUINO_SD_PATH ""      /**< Set the working directory. File/directory paths will be appended to it. */
 #endif
 

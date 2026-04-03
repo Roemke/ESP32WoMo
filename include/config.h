@@ -32,8 +32,10 @@
 #define WIFI_AP_PASSWORD    ""          // leer = offenes Netz
 #define WIFI_CONNECT_TIMEOUT_MS 10000
 #define WIFI_USE_STATIC_IP_DEFAULT  false
-#define WIFI_STATIC_IP_DEFAULT      "192.168.1.100"
+#define WIFI_STATIC_IP_DEFAULT      "192.168.42.4"
 #define WIFI_SUBNET_DEFAULT         "255.255.255.0"
+#define WIFI_GATEWAY_DEFAULT    "192.168.42.1"
+#define WIFI_DNS_DEFAULT        "192.168.42.1"
 
 // ---- Webserver ---------------------------------------------
 #define HTTP_PORT           80

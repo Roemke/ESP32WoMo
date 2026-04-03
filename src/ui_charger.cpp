@@ -72,7 +72,7 @@ void uiChargerSetup(lv_obj_t *tab)
     // Drei Panels nebeneinander: je 256px breit, 8px Abstand
     // 8 + 256 + 8 + 256 + 8 + 256 + 8 = 800px
     const int pw         = 256;
-    const int ph         = 420;
+    const int ph         = 392;
     const int gap        = 8;
     const int row_start  = 34;
     const int row_step   = 62;

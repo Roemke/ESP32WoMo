@@ -428,11 +428,13 @@ async function saveIPs() {
 // ================================================================
 async function saveWifi() {
   const body = {
-    ssid:          getVal('wifiSsid'),
-    password:      getVal('wifiPass'),
-    use_static_ip: document.getElementById('wifiStatic').checked,
-    static_ip:     getVal('wifiIP'),
-    subnet:        getVal('wifiSN')
+      ssid:          getVal('wifiSsid'),
+      password:      getVal('wifiPass'),
+      use_static_ip: document.getElementById('wifiStatic').checked,
+      static_ip:     getVal('wifiIP'),
+      subnet:        getVal('wifiSN'),
+      gateway:       getVal('wifiGW'),   // neu
+      dns:           getVal('wifiDNS')   // neu
   };
   try {
     await fetch('/api/config/wifi', {
@@ -691,8 +693,10 @@ window.addEventListener('load', () => {
     <input type="checkbox" id="wifiStatic" onchange="toggleIP(this)" %WIFI_USE_STATIC%>
   </div>
   <div id="ip-fields" style="display:none">
-    <div class="form-row"><label>IP-Adresse</label><input type="text" id="wifiIP" value="%WIFI_STATIC_IP%"></div>
+    <div class="form-row"><label>IP-Adresse</label><input type="text" id="wifiIP"  value="%WIFI_STATIC_IP%"></div>
     <div class="form-row"><label>Subnetz</label>   <input type="text" id="wifiSN"  value="%WIFI_SUBNET%"></div>
+    <div class="form-row"><label>Gateway</label>   <input type="text" id="wifiGW"  value="%WIFI_GATEWAY%"></div>
+    <div class="form-row"><label>DNS</label>       <input type="text" id="wifiDNS" value="%WIFI_DNS%"></div>
   </div>
   <button class="btn" onclick="saveWifi()">WLAN Speichern &amp; Neustart</button>
   <div class="infoField invisible" id="wifiInfo">
