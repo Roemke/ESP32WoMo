@@ -485,6 +485,7 @@ window.addEventListener('load', () => {
   <button class="tablink" id="defaultTab" onclick="openTab(event,'status')">Status</button>
   <button class="tablink"                 onclick="openTab(event,'histKlima')">Klima-Verlauf</button>
   <button class="tablink"                 onclick="openTab(event,'histBat')">Batterie-Verlauf</button>
+  <button class="tablink"                 onclick="openTab(event,'beleuchtung')">Beleuchtung</button>
   <button class="tablink"                 onclick="openTab(event,'config')">Konfiguration</button>
   <button class="tablink"                 onclick="openTab(event,'help')">Hilfe</button>
 </div>
@@ -673,6 +674,26 @@ window.addEventListener('load', () => {
   </p>
 </div>
 
+<!-- ============================================================ -->
+<!-- TAB: Beleuchtung                                             -->
+<!-- ============================================================ -->
+
+<div id="beleuchtung" class="tabcontent">
+  <div style="display:flex; gap:10px; flex-wrap:wrap;">
+    <div style="flex:1; min-width:300px;">
+      <h4 style="text-align:center; color:#aaaaff; margin-bottom:8px;">Innen</h4>
+      <iframe src="http://%WLED_INNEN_IP%" 
+              style="width:100%; height:600px; border:1px solid #3a3a8e; border-radius:8px;">
+      </iframe>
+    </div>
+    <div style="flex:1; min-width:300px;">
+      <h4 style="text-align:center; color:#aaaaff; margin-bottom:8px;">Außen</h4>
+      <iframe src="http://%WLED_AUSSEN_IP%" 
+              style="width:100%; height:600px; border:1px solid #3a3a8e; border-radius:8px;">
+      </iframe>
+    </div>
+  </div>
+</div>
 
 <!-- ============================================================ -->
 <!-- TAB: KONFIGURATION                                          -->
