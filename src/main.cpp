@@ -21,6 +21,7 @@
 #include <SD.h> //für dateioperationen per webserver, hat logisch nichts mit sdcard.h zu tun.
 #include "ui_details.h"
 #include "ui_charger.h"
+#include "ui_wled.h"
 
 
 AsyncWebServer server(80);
@@ -499,9 +500,9 @@ void loop() {
     //uiHistoryLoop(); //nur noch für browser, das machen wir nicht mehr im display
     //wledLoop();
 
-    // UI alle 2 Sekunden aktualisieren            
+    // UI aktualisieren            
     uiSensorenUpdate();
     uiChargerUpdate();
     uiDetailsUpdate();
-    
+    uiWledUpdate();
 }

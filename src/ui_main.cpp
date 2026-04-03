@@ -4,7 +4,7 @@
 #include "ui_charger.h"
 //#include "ui_history.h"
 #include "wifi.h"
-
+#include "ui_wled.h"
 //user interface
 static lv_obj_t *ui_tabview = nullptr;
 
@@ -16,6 +16,8 @@ void uiMainSetup()
 
     // Tabview über den ganzen Screen
     ui_tabview = lv_tabview_create(scr);
+    lv_obj_t *content = lv_tabview_get_content(ui_tabview);
+    lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
     lv_tabview_set_tab_bar_position(ui_tabview, LV_DIR_TOP);
     lv_tabview_set_tab_bar_size(ui_tabview, 40);
     lv_obj_set_size(ui_tabview, 800, 440);
@@ -33,20 +35,13 @@ void uiMainSetup()
     lv_obj_t *tab_sensoren = lv_tabview_add_tab(ui_tabview, "Sensoren");
     lv_obj_t *tab_charger  = lv_tabview_add_tab(ui_tabview, "Charger");
     lv_obj_t *tab_stat     = lv_tabview_add_tab(ui_tabview, "Details");
-    lv_obj_t *tab_licht    = lv_tabview_add_tab(ui_tabview, "Beleuchtung");
+    lv_obj_t *tab_wled    = lv_tabview_add_tab(ui_tabview, "Beleuchtung");
     //lv_obj_t *tab_bat_hist   = lv_tabview_add_tab(ui_tabview, "Bat-Verlauf");
     //lv_obj_t *tab_klima_hist = lv_tabview_add_tab(ui_tabview, "Klima-Verlauf");
 
     
 
-    // Tab Beleuchtung – Platzhalter
-    lv_obj_set_style_bg_color(tab_licht, lv_color_hex(0x1A1A2E), 0);
-    lv_obj_set_style_bg_opa(tab_licht, LV_OPA_COVER, 0);
-    lv_obj_t *lbl_licht = lv_label_create(tab_licht);
-    lv_label_set_text(lbl_licht, "kommt noch...");
-    lv_obj_set_style_text_color(lbl_licht, lv_color_hex(0x888888), 0);
-    lv_obj_center(lbl_licht);
-
+    
     // Durch alle Buttons im Tab-Bar iterieren, Farben etwas anpassen
     uint32_t tab_count = lv_tabview_get_tab_count(ui_tabview);
     for (uint32_t i = 0; i < tab_count; i++)
@@ -70,6 +65,8 @@ void uiMainSetup()
     // Details / Statistik
     uiDetailsSetup(tab_stat);
  
+    //beleuchtung
+    uiWledSetup(tab_wled);
     // Klima und Batterie setup
     //uiHistoryKlimaSetup(tab_klima_hist);
     //uiHistoryBatSetup(tab_bat_hist);
