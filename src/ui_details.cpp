@@ -86,7 +86,7 @@ void uiDetailsSetup(lv_obj_t *tab)
     lv_obj_set_pos(lbl, 8, 14);
 
     s_dropdown = lv_dropdown_create(ctrl);
-    lv_dropdown_set_options(s_dropdown, "1h\n4h\n8h\n12h\n16h\n24h\n48h");
+    lv_dropdown_set_options(s_dropdown, "1h\n4h\n8h\n12h\n16h\n24h\n42h");
     lv_dropdown_set_selected(s_dropdown, 3); // 12h = index 3
     lv_obj_set_width(s_dropdown, 100);
     lv_obj_set_pos(s_dropdown, 200, 10);
@@ -97,7 +97,7 @@ void uiDetailsSetup(lv_obj_t *tab)
     lv_obj_add_event_cb(s_dropdown, [](lv_event_t *e)
     {
         uint16_t sel = lv_dropdown_get_selected(s_dropdown);
-        const uint32_t hours[] = {1, 4, 8, 12, 24, 48};
+        const uint32_t hours[] = {1, 4, 8, 12, 24, 42};
         s_hours = hours[sel];
         calcRingStats(s_hours);
     }, LV_EVENT_VALUE_CHANGED, nullptr);
