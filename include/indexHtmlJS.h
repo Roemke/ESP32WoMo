@@ -229,8 +229,6 @@ async function loadStats() {
 // ================================================================
 // Polling – alle 2 Sekunden /api/data abrufen
 // ================================================================
-let logFrom = 0;
-
 async function poll() {
   try {
     const r = await fetch('/api/data?logFrom=' + logFrom);
@@ -279,19 +277,26 @@ async function poll() {
       setBadge('chargerI',     d.charger.I        + ' A',  'neutral');
       setBadge('chargerState', d.charger.stateStr || '---', 'neutral');
     }
-    // Log
-    if (d.log && d.log.length > 0) {
-      const c = document.getElementById('logContainer');
-      d.log.forEach(line => {
-        const div = document.createElement('div');
-        div.textContent = line;
-        c.appendChild(div);
-      });
-      c.scrollTop = c.scrollHeight;
-    }
-    if (typeof d.logCount !== 'undefined') logFrom = d.logCount;
 
   } catch(e) { setText('statusUpdate', 'Fehler'); }
+}
+// Log-Polling separat
+let logFrom = 0;
+async function pollLog() {
+    try {
+        const r = await fetch('/api/log?from=' + logFrom);
+        const d = await r.json();
+        if (d.log && d.log.length > 0) {
+            const c = document.getElementById('logContainer');
+            d.log.forEach(line => {
+                const div = document.createElement('div');
+                div.textContent = line;
+                c.appendChild(div);
+            });
+            c.scrollTop = c.scrollHeight;
+        }
+        if (typeof d.count !== 'undefined') logFrom = d.count;
+    } catch(e) {}
 }
 
 // ================================================================
@@ -456,6 +461,8 @@ window.addEventListener('load', () => {
   initDatepickers();
   poll();
   setInterval(poll, 2000);
+  pollLog();
+  setInterval(pollLog, 5000);
   loadStats();
   setInterval(loadStats, 2000); // alle 2 Sekunden
 });

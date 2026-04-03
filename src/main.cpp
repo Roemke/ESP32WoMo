@@ -304,6 +304,24 @@ static void handleSDUpload(AsyncWebServerRequest* req, String filename, size_t i
         logPrintf("SD Upload: %s fertig (%u bytes)\n", path.c_str(), index + len);
     }
 }
+//log abfrage behandeln
+static void handleLog(AsyncWebServerRequest *req)
+{
+    uint32_t from = 0;
+    if (req->hasParam("from"))
+        from = req->getParam("from")->value().toInt();
+    
+    JsonDocument doc;
+    JsonArray arr = doc["log"].to<JsonArray>();
+    for (uint32_t i = from; i < logCount; i++) {
+        uint8_t idx = (logIndex + LOG_BUFFER_SIZE - logCount + i) % LOG_BUFFER_SIZE;
+        arr.add(logBuffer[idx]);
+    }
+    doc["count"] = logCount;
+    String out;
+    serializeJson(doc, out);
+    req->send(200, "application/json", out);
+}
 
 
 //alle routen für den server, aus setup rufen 
@@ -355,6 +373,9 @@ void addRoutes()
     {
         handleSDUpload(req, filename, index, data, len, final);
     });
+    
+    server.on("/api/log", HTTP_GET, [](AsyncWebServerRequest *req) {
+        handleLog(req); });
 
     server.on("/api/data", HTTP_GET, [](AsyncWebServerRequest *req)
         { req->send(200, "application/json", buildDataJson()); });
