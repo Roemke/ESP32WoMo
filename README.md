@@ -1,234 +1,151 @@
-# ESP32 WoMo
+# ESP32 WoMo Monitor
 
-Wohnmobil-Steuerung auf Basis eines **Sunton ESP32-S3 4,3" 800×480 IPS Display-Boards**.
+A dual-ESP32 monitoring and control system for a motorhome (Wohnmobil), providing real-time sensor data, battery monitoring, solar charge controller tracking, and lighting control via a touchscreen display and web interface.
+
+## Why Two ESP32s?
+
+The project uses two separate ESP32-S3 boards by design:
+
+- **Display ESP32** (`ESP32WoMo`): Drives the 800×480 RGB touchscreen display using the `esp32_smartdisplay` framework. This board's display interface consumes significant resources and shares the I2C bus in a way that made running BLE and I2C sensors simultaneously unreliable. Bluetooth was intentionally excluded from this board to keep the display stable and responsive.
+
+- **Sensor ESP32** (`sensor_esp`): Handles all BLE communication with Victron devices (BMV712, MPPT solar chargers, Blue Smart IP22 charger) as well as I2C sensors (BME280 for temperature/humidity/pressure). It exposes all data via a simple JSON HTTP API that the display ESP polls regularly.
+
+This separation keeps responsibilities clean, avoids BLE/WiFi/display resource conflicts, and makes the system more robust.
 
 ## Hardware
 
-| Komponente | Details |
-|---|---|
-| Board | Sunton ESP32-8048S043C (ESP32-S3, 8MB PSRAM, 16MB Flash) |
-| Display | 4,3" IPS RGB 800×480, kapazitiver Touch (GT911) |
-| Batteriemonitor | Victron BMV712 via VE.Direct (UART, 19200 Baud) |
-| Klimasensor | BME280 (I²C) |
-| Beleuchtung | 2× WLED-ESP (innen + außen) |
-| Speicher | SD-Karte (SPI, onboard Slot) |
+### Display ESP32 (ESP32WoMo)
+- Board: ESP32-S3 with 800×480 RGB display (GT911 touch controller)
+- SD card for data logging and history
+- WiFi for web interface and NTP time sync
 
-Neuüberlegung wegen Stress mit i2c - sensoren auf eigenen esp auslagern
-sensor_esp
+### Sensor ESP32 (sensor_esp)
+- Board: ESP32-S3 DevKit
+- **BME280**: Temperature, humidity, barometric pressure (I2C)
+- **SCD41**: CO₂ sensor (I2C) — *not yet tested, driver prepared*
+- **Victron BMV712**: Battery monitor via BLE
+- **Victron MPPT (×2)**: Solar charge controllers via BLE
+- **Victron Blue Smart IP22**: Battery charger via BLE
+- **WLED**: LED lighting control (Innen/Außen) via WiFi/JSON API
 
-## Projektstruktur
+## Features
+
+### Display (LVGL 9)
+- **Sensoren Tab**: Live climate and battery data with background images
+- **Charger Tab**: Solar MPPT1, MPPT2 and IP22 charger data
+- **Details Tab**: Statistics table (min/max/avg) for all sensors over selectable time periods
+- **Beleuchtung Tab**: WLED lighting control with RGB sliders, color presets, brightness and power per zone
+- Tab navigation via touch buttons (swipe disabled on lighting tab)
+
+![Display Sensoren Tab](screenshots/display_sensoren.jpg)
+![Display Charger Tab](screenshots/display_charger.jpg)
+![Display Details Tab](screenshots/display_details.jpg)
+![Display Beleuchtung Tab](screenshots/display_beleuchtung.jpg)
+
+### Web Interface
+- **Status Tab**: Live sensor badges with color-coded warnings
+- **Klima-Verlauf**: Climate history charts from SD card
+- **Batterie-Verlauf**: Battery history charts from SD card
+- **Solar & Charger**: Solar and charger history charts (MPPT1, MPPT2, IP22)
+- **Beleuchtung**: Embedded WLED web interfaces (Innen/Außen) via iframe
+- **Konfiguration**: IP addresses, WiFi settings, poll interval
+- **Hilfe**: SD card file browser and log viewer
+
+![Web Status](screenshots/web_status.png)
+![Web Solar Charger](screenshots/web_solar_charger.png)
+![Web Konfiguration](screenshots/web_config.png)
+
+## Data Logging
+
+All sensor data is written to the SD card every 60 seconds in CSV format:
 
 ```
-ESP32WoMo/
-├── boards/                        ← Git-Submodul: Sunton Board-Definitionen
-├── include/
-│   ├── config.h                   ← Zentrale Konfiguration (Pins, Intervalle)
-│   ├── logging.h
-│   ├── wifi.h
-│   ├── vedirect.h
-│   ├── bme280sensor.h
-│   ├── sdcard.h
-│   ├── wled.h
-│   └── lv_conf.h                  ← LVGL-Konfiguration (aus Template erzeugt)
-├── src/
-│   ├── main.cpp                   ← Aktives Hauptprogramm
-│   ├── main.cpp-mini              ← Minimales Testprogramm (nur Display)
-│   ├── main.cpp-DemoLVGL          ← LVGL Demo (3-Spalten UI)
-│   ├── logging.cpp
-│   ├── wifi.cpp
-│   ├── vedirect.cpp
-│   ├── bme280sensor.cpp
-│   ├── sdcard.cpp
-│   └── wled.cpp
-└── platformio.ini
+Datum,Zeit,V,I,VS,SOC,TTG_min,P_W,T_C,H_pct,P_hPa,CO2_ppm,MPPT1_V,MPPT1_I,MPPT1_PV,MPPT2_V,MPPT2_I,MPPT2_PV,Charger_V,Charger_I,valid_flags
 ```
 
-## Einrichtung
+The `valid_flags` bitmask records which sensors were active at the time of writing, enabling accurate historical statistics even when sensors are occasionally unavailable (e.g. solar at night).
 
-### 1. Board-Definitionen (einmalig)
+Old CSV files (12 fields, without MPPT/Charger/valid_flags) are still supported for reading.
 
-```bash
-git init
-git submodule add https://github.com/rzeldent/platformio-espressif32-sunton.git boards
+## Ring Buffer
+
+The display ESP maintains an in-PSRAM ring buffer of recent measurements for live statistics. Buffer capacity depends on the configured poll interval:
+
+```
+capacity (hours) = RING_MAX_ENTRIES × poll_interval_ms / 3600000
 ```
 
-Bei vorhandenem Repo klonen:
-```bash
-git clone --recurse-submodules <repo-url>
-```
+At the default 2000ms poll interval and 75600 entries, this gives approximately 42 hours of history. On startup, the ring buffer is pre-filled from the SD card.
 
-### 2. LVGL Konfiguration
+## Configuration
 
-Nach dem ersten `pio pkg install` das Template kopieren und aktivieren:
+All settings are persistent via LittleFS:
 
-```bash
-cp .pio/libdeps/esp32-8048S043C/lvgl/lv_conf_template.h include/lv_conf.h
-sed -i 's/#if 0/#if 1/' include/lv_conf.h
-```
-
-Dann in `include/lv_conf.h` sicherstellen:
-```c
-#define LV_COLOR_DEPTH 16
-// Alle benötigten Montserrat-Fonts auf 1 setzen:
-#define LV_FONT_MONTSERRAT_14 1
-#define LV_FONT_MONTSERRAT_16 1
-#define LV_FONT_MONTSERRAT_20 1
-```
-
-### 3. `platformio.ini` prüfen
-
-```ini
-[platformio]
-default_envs = esp32-8048S043C
-boards_dir   = boards
-
-build_flags =
-    -D LV_CONF_INCLUDE_SIMPLE
-    -I include
-```
-
-### 4. Bauen & Flashen
-
-In VSCode mit PlatformIO-Extension: **Build** dann **Upload**.
-
-> Falls Upload hängt: BOOT-Taste gedrückt halten beim Upload-Start.
-
-## Konfiguration zur Laufzeit
-
-Alle Einstellungen werden in LittleFS gespeichert und überleben einen Neustart.
-
-### WiFi konfigurieren
-
-```bash
-curl -X POST http://<ip>/api/config/wifi \
-  -H "Content-Type: application/json" \
-  -d '{"ssid":"MeinWLAN","password":"MeinPasswort"}'
-```
-
-Der ESP startet nach dem Speichern automatisch neu.
-Ohne gespeicherte Credentials startet er als Access Point **ESP32WoMo**.
-
-### WLED IPs konfigurieren
-
-```bash
-curl -X POST http://<ip>/api/config/wled \
-  -H "Content-Type: application/json" \
-  -d '{"innen":{"ip":"192.168.1.10","port":80},"aussen":{"ip":"192.168.1.11","port":80}}'
-```
-
-Gespeichert in `/wled.json` auf LittleFS.
-
-## REST-API Übersicht
-
-| Methode | Endpunkt | Beschreibung |
+| Setting | Default | Description |
 |---|---|---|
-| GET | `/api/data` | Alle Sensordaten als JSON |
-| POST | `/api/wled/innen/on` | Innenbeleuchtung einschalten |
-| POST | `/api/wled/innen/off` | Innenbeleuchtung ausschalten |
-| POST | `/api/wled/aussen/on` | Außenbeleuchtung einschalten |
-| POST | `/api/wled/aussen/off` | Außenbeleuchtung ausschalten |
-| POST | `/api/config/wled` | WLED IPs konfigurieren |
-| POST | `/api/config/wifi` | WiFi-Credentials setzen |
-| POST | `/api/reboot` | ESP32 neu starten |
-| GET/POST | `/update` | OTA-Update (ElegantOTA) |
+| `sensor_esp_ip` | `192.168.42.6` | IP of the sensor ESP |
+| `wled_innen_ip` | `192.168.42.7` | IP of indoor WLED |
+| `wled_aussen_ip` | `192.168.42.8` | IP of outdoor WLED |
+| `sensor_poll_interval_ms` | `2000` | How often to fetch sensor data (min 2000ms recommended) |
 
-### Beispiel `/api/data` Antwort
+WiFi supports static IP with configurable gateway and DNS.
 
-```json
-{
-  "batterie": {
-    "valid": true,
-    "V": 12.845,
-    "I": -2.310,
-    "VS": 12.701,
-    "SOC": 87.3,
-    "TTG": 1240,
-    "P": -29.7
-  },
-  "klima": {
-    "valid": true,
-    "T": 22.4,
-    "H": 58.1,
-    "P": 1013.2
-  },
-  "wled": {
-    "innen":  {"ip":"192.168.1.10","port":80,"state":true},
-    "aussen": {"ip":"192.168.1.11","port":80,"state":false}
-  },
-  "sd":   {"ready":true,"size_mb":32,"used_mb":1,"free_mb":31},
-  "wifi": "192.168.1.42"
-}
-```
-
-## Hardware-Anschluss
-
-### VE.Direct (BMV712)
-
-> ⚠️ **Vor dem Anschluss Spannung messen!**
-> Zwischen GND und TX am VE.Direct-Stecker messen.
-> Bei 5V einen Spannungsteiler (10kΩ / 20kΩ) verwenden –
-> der ESP32-S3 verträgt nur 3,3V an den GPIO-Pins.
-
-| VE.Direct | ESP32-S3 |
-|---|---|
-| GND | GND |
-| TX | GPIO 17 (RX) |
-| RX | nicht angeschlossen |
-| VCC | nicht verwenden (max. 10mA) |
-
-Stecker: JST-PH 2,0mm 4-polig
-
-### BME280 (I²C)
-
-| BME280 | ESP32-S3 |
-|---|---|
-| GND | GND |
-| VCC | 3,3V |
-| SDA | GPIO 8 |
-| SCL | GPIO 9 |
-
-> Adresse: 0x76 (Standard) oder 0x77 (SDO an VCC).
-> Der Code probiert automatisch beide Adressen.
-
-### SD-Karte
-
-Onboard-Slot, keine externe Verkabelung nötig.
-Pins laut Board-Definition: CS=10, MOSI=11, SCLK=12, MISO=13.
-
-### WLED
-
-Verbindung über WLAN, keine direkte Verkabelung.
-IPs über `/api/config/wled` konfigurierbar.
-
-## SD-Karte Datenformat
-
-Messwerte werden alle 60 Sekunden als CSV gespeichert:
+## Project Structure
 
 ```
-/data/day_00001.csv
-uptime_ms,V,I,VS,SOC,TTG,P_W,T_C,H_pct,P_hPa
-60123,12.845,-2.310,12.701,87.3,1240,-29.7,22.4,58.1,1013.2
+ESP32WoMo/          ← Display ESP project (PlatformIO)
+├── src/
+│   ├── main.cpp
+│   ├── ui_main.cpp
+│   ├── ui_sensoren.cpp
+│   ├── ui_charger.cpp
+│   ├── ui_details.cpp
+│   ├── ui_wled.cpp
+│   ├── sensorpoll.cpp
+│   ├── sdcard.cpp
+│   ├── wifi.cpp
+│   └── ...
+├── include/
+│   ├── lv_conf.h
+│   ├── sensorpoll.h
+│   └── ...
+├── earthSmall.c        ← LVGL image (ARGB8888)
+└── tardisSmall.c       ← LVGL image (ARGB8888)
+
+sensor_esp/         ← Sensor ESP project (PlatformIO)
+├── src/
+│   ├── main.cpp
+│   ├── victronble.cpp
+│   ├── wifi.cpp
+│   └── ...
+└── lib/
+    └── victronble/     ← Victron BLE library (modified)
 ```
 
-Eine neue Datei pro Laufzeittag. Sobald NTP verfügbar ist,
-kann der Dateiname auf ein echtes Datum umgestellt werden.
+## How to Add Screenshots
 
-## Bekannte Einschränkungen / TODO
+Place screenshot files in a `screenshots/` folder next to this README. Reference them in Markdown like this:
 
-- **Kein RTC / NTP**: SD-Dateinamen basieren auf Laufzeit, nicht auf Uhrzeit
-- **VE.Direct Spannung**: Vor dem Anschluss messen (3,3V oder 5V)
-- **WLED Polling blockiert bei Timeout**: Läuft in eigenem FreeRTOS-Task
-  auf Core 0, beeinflusst Display auf Core 1 nicht
-- **WiFi-Credentials im AP-Modus**: Über curl oder eigene Web-UI setzen
+```markdown
+![Alt text](screenshots/your_image.png)
+```
 
-## Bibliotheken
+Supported formats: `.png`, `.jpg`, `.gif`. GitHub renders them inline automatically.
 
-| Bibliothek | Zweck |
-|---|---|
-| rzeldent/esp32-smartdisplay | Display + Touch Treiber |
-| lvgl/lvgl | UI Framework |
-| ESP32Async/ESPAsyncWebServer | Async Webserver |
-| ESP32Async/AsyncTCP | TCP für Async Webserver |
-| ayushsharma82/ElegantOTA | OTA Updates |
-| bblanchon/ArduinoJson | JSON |
-| adafruit/Adafruit BME280 | BME280 Sensor |
+## Dependencies
+
+### ESP32WoMo
+- [esp32_smartdisplay](https://github.com/rzeldent/esp32-smartdisplay)
+- LVGL 9
+- ESPAsyncWebServer
+- ArduinoJson
+- ElegantOTA
+
+### sensor_esp
+- [VictronBLE](https://github.com/Sh3d/VictronBLE) (modified)
+- ESPAsyncWebServer
+- ArduinoJson
+
+## License
+
+MIT

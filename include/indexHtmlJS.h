@@ -356,7 +356,7 @@ function initDatepickers() {
       String(d.getMinutes()).padStart(2,'0');
   }
 
-  ['klima','bat'].forEach(ch => {
+  ['klima','bat','solar'].forEach(ch => {
     setVal('from_' + ch, toLocal(ago));
     setVal('to_'   + ch, toLocal(now));
   });
@@ -366,6 +366,7 @@ function initDatepickers() {
 // History laden und Charts zeichnen
 // ================================================================
 let chartKlima    = null;
+let chartSolar    = null;
 let chartBatterie = null;
 
 const CHART_DEFAULTS = {
@@ -423,8 +424,33 @@ async function loadHistory(channel) {
             { label: 'CO2 (ppm)',       data: d.CO2, borderColor: '#66bb6a', tension: 0.3, pointRadius: 0, hidden: true }
           ]
         }
-      });
-    } else {
+      }); 
+    } 
+    else if (channel === 'solar') {
+      if (chartSolar) chartSolar.destroy();
+      const chargerP = (d.CHARGER_V && d.CHARGER_I) 
+        ? d.CHARGER_V.map((v, i) => Math.round(v * d.CHARGER_I[i] * 100) / 100)
+        : [];
+      chartSolar = new Chart(canvas, {
+          type: 'line',
+          options: CHART_DEFAULTS,
+          data: {
+              labels: d.labels,
+             datasets: [
+                { label: 'MPPT1 PV (W)',  data: d.MPPT1_PV  || [], borderColor: '#ffa726', tension: 0.3, pointRadius: 0 },
+                { label: 'MPPT2 PV (W)',  data: d.MPPT2_PV  || [], borderColor: '#66bb6a', tension: 0.3, pointRadius: 0 },
+                { label: 'Charger P (W)', data: chargerP,          borderColor: '#42a5f5', tension: 0.3, pointRadius: 0 },
+                { label: 'MPPT1 V (V)',   data: d.MPPT1_V   || [], borderColor: '#ff7043', tension: 0.3, pointRadius: 0, hidden: true },
+                { label: 'MPPT2 V (V)',   data: d.MPPT2_V   || [], borderColor: '#ab47bc', tension: 0.3, pointRadius: 0, hidden: true },
+                { label: 'Charger V (V)', data: d.CHARGER_V || [], borderColor: '#26c6da', tension: 0.3, pointRadius: 0, hidden: true },
+                { label: 'MPPT1 I (A)',   data: d.MPPT1_I   || [], borderColor: '#ef5350', tension: 0.3, pointRadius: 0, hidden: true },
+                { label: 'MPPT2 I (A)',   data: d.MPPT2_I   || [], borderColor: '#ec407a', tension: 0.3, pointRadius: 0, hidden: true },
+                { label: 'Charger I (A)', data: d.CHARGER_I || [], borderColor: '#8d6e63', tension: 0.3, pointRadius: 0, hidden: true },
+            ]
+          }
+        });
+    } 
+    else {
       if (chartBatterie) chartBatterie.destroy();
       chartBatterie = new Chart(canvas, {
         type: 'line',
@@ -528,6 +554,7 @@ window.addEventListener('load', () => {
   <button class="tablink" id="defaultTab" onclick="openTab(event,'status')">Status</button>
   <button class="tablink"                 onclick="openTab(event,'histKlima')">Klima-Verlauf</button>
   <button class="tablink"                 onclick="openTab(event,'histBat')">Batterie-Verlauf</button>
+  <button class="tablink"                 onclick="openTab(event,'histSolar')">Solar & Charger</button>
   <button class="tablink"                 onclick="openTab(event,'beleuchtung')">Beleuchtung</button>
   <button class="tablink"                 onclick="openTab(event,'config')">Konfiguration</button>
   <button class="tablink"                 onclick="openTab(event,'help')">Hilfe</button>
@@ -717,6 +744,26 @@ window.addEventListener('load', () => {
   </p>
 </div>
 
+<!-- ============================================================ -->
+<!-- TAB: History Solar und Charger                               -->
+<!-- ============================================================ -->
+<div id="histSolar" class="tabcontent">
+  <div class="history-controls">
+    <label>Von</label>
+    <input type="datetime-local" id="from_solar">
+    <label>Bis</label>
+    <input type="datetime-local" id="to_solar">
+    <button class="btn" onclick="loadHistory('solar')">Laden</button>
+    <span id="info_solar" style="color:#666688;font-size:0.85em"></span>
+  </div>
+  <div class="chart-wrap">
+    <canvas id="chart_solar"></canvas>
+    <div class="chart-loading" id="loading_solar" style="display:none">Lade Daten...</div>
+  </div>
+  <p style="color:#666688;font-size:0.8em">
+    Leistungen standardmäßig sichtbar – weitere Kanäle in der Legende einblenden.
+  </p>
+</div>
 <!-- ============================================================ -->
 <!-- TAB: Beleuchtung                                             -->
 <!-- ============================================================ -->

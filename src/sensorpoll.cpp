@@ -55,11 +55,34 @@ void calcRingStats(uint32_t hours)
     ringStats.mppt2_v_avg = ringStats.mppt2_i_avg = ringStats.mppt2_pv_avg = 0;
     ringStats.charger_v_avg = ringStats.charger_i_avg = 0;
 
-    for (uint32_t i = 0; i < entries; i++) //entries passens zum zeitintervall
+    // Startwerte werden beim ersten gültigen Eintrag gesetzt
+    bool initialized = false;
+
+    for (uint32_t i = 0; i < entries; i++)
     {
-        //laufe von hinten durch den ringbuffer starte eins vor ringHead
         uint32_t idx = (ringHead + RING_MAX_ENTRIES - 1 - i) % RING_MAX_ENTRIES;
         RingEntry &e = ringBuffer[idx];
+
+        if (!initialized && e.valid_flags != 0) {
+            ringStats.t_min = ringStats.t_max = e.T;
+            ringStats.h_min = ringStats.h_max = e.H;
+            ringStats.p_min = ringStats.p_max = e.P;
+            ringStats.co2_min = ringStats.co2_max = e.CO2;
+            ringStats.v_min = ringStats.v_max = e.V;
+            ringStats.i_min = ringStats.i_max = e.I;
+            ringStats.soc_min = ringStats.soc_max = e.SOC;
+            ringStats.pw_min = ringStats.pw_max = e.PW;
+            ringStats.vs_min = ringStats.vs_max = e.VS;
+            ringStats.mppt1_v_min  = ringStats.mppt1_v_max  = e.mppt1_V;
+            ringStats.mppt1_i_min  = ringStats.mppt1_i_max  = e.mppt1_I;
+            ringStats.mppt1_pv_min = ringStats.mppt1_pv_max = e.mppt1_PV;
+            ringStats.mppt2_v_min  = ringStats.mppt2_v_max  = e.mppt2_V;
+            ringStats.mppt2_i_min  = ringStats.mppt2_i_max  = e.mppt2_I;
+            ringStats.mppt2_pv_min = ringStats.mppt2_pv_max = e.mppt2_PV;
+            ringStats.charger_v_min = ringStats.charger_v_max = e.charger_V;
+            ringStats.charger_i_min = ringStats.charger_i_max = e.charger_I;
+            initialized = true;
+        }
 
         // BME:
         if (e.valid_flags & VALID_BME)
