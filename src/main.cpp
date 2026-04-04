@@ -198,7 +198,7 @@ void handleStats(AsyncWebServerRequest *req)
     JsonDocument doc;
     doc["valid"] = true;
     doc["hours"] = ringStats.hours;
-
+    doc["valid_sensors"] = ringStats.valid_sensors; 
     auto addStats = [&](const char *key, float mn, float mx, float avg)
     {
         doc[key]["min"] = mn;

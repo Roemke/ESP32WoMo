@@ -20,10 +20,10 @@ void calcRingStats(uint32_t hours)
     ringStats.valid = false;
     if (!ringBuffer || ringCount == 0) return;  //kein eintrag zurück
 
-    uint32_t maxEntries = (hours * 3600 * 1000) / RING_INTERVAL_MS;
+    uint32_t maxEntries = (hours * 3600 * 1000) / appConfig.sensor_poll_interval_ms;
     uint32_t entries    = min(ringCount, maxEntries);
 
-    uint32_t bme_cnt = 0, ve_cnt = 0, mppt1_cnt = 0, mppt2_cnt = 0, charger_cnt = 0;
+    uint32_t bme_cnt = 0, ve_cnt = 0, mppt1_cnt = 0, mppt2_cnt = 0, charger_cnt = 0,scd_cnt=0;
 
     // Startwerte
     uint32_t first = (ringHead + RING_MAX_ENTRIES - 1) % RING_MAX_ENTRIES; //letzter gesetzter eintrag
@@ -61,8 +61,8 @@ void calcRingStats(uint32_t hours)
         uint32_t idx = (ringHead + RING_MAX_ENTRIES - 1 - i) % RING_MAX_ENTRIES;
         RingEntry &e = ringBuffer[idx];
 
-        // BME: Temperatur als Indikator (> -40 = gültig)
-        if (e.T > -40.0f)
+        // BME:
+        if (e.valid_flags & VALID_BME)
         {
             bme_cnt++;
             ringStats.t_min = min(ringStats.t_min, e.T);
@@ -74,13 +74,17 @@ void calcRingStats(uint32_t hours)
             ringStats.p_min = min(ringStats.p_min, e.P);
             ringStats.p_max = max(ringStats.p_max, e.P);
             ringStats.p_avg += e.P;
+        }
+        if (e.valid_flags & VALID_CO2)
+        {
+            scd_cnt++;
             ringStats.co2_min = min(ringStats.co2_min, e.CO2);
             ringStats.co2_max = max(ringStats.co2_max, e.CO2);
             ringStats.co2_avg += e.CO2;
         }
 
-        // VE.Direct: Spannung als Indikator
-        if (e.V > 0.0f)
+        // VE.Direct:
+        if (e.valid_flags & VALID_VE)
         {
             ve_cnt++;
             ringStats.v_min = min(ringStats.v_min, e.V);
@@ -100,8 +104,8 @@ void calcRingStats(uint32_t hours)
             ringStats.vs_avg += e.VS;
         }
 
-        // MPPT1: Spannung als Indikator
-        if (e.mppt1_V > 0.0f)
+        // MPPT1: 
+        if (e.valid_flags & VALID_MPPT1)
         {
             mppt1_cnt++;
             ringStats.mppt1_v_min  = min(ringStats.mppt1_v_min,  e.mppt1_V);
@@ -115,8 +119,8 @@ void calcRingStats(uint32_t hours)
             ringStats.mppt1_pv_avg += e.mppt1_PV;
         }
 
-        // MPPT2: Spannung als Indikator
-        if (e.mppt2_V > 0.0f)
+        // MPPT2: 
+        if (e.valid_flags & VALID_MPPT2)
         {
             mppt2_cnt++;
             ringStats.mppt2_v_min  = min(ringStats.mppt2_v_min,  e.mppt2_V);
@@ -130,8 +134,8 @@ void calcRingStats(uint32_t hours)
             ringStats.mppt2_pv_avg += e.mppt2_PV;
         }
 
-        // Charger: Spannung als Indikator
-        if (e.charger_V > 0.0f)
+        // Charger: 
+        if (e.valid_flags & VALID_CHARGER)
         {
             charger_cnt++;
             ringStats.charger_v_min = min(ringStats.charger_v_min, e.charger_V);
@@ -148,10 +152,15 @@ void calcRingStats(uint32_t hours)
         ringStats.t_avg   /= bme_cnt;
         ringStats.h_avg   /= bme_cnt;
         ringStats.p_avg   /= bme_cnt;
-        ringStats.co2_avg /= bme_cnt;
     } else {
         ringStats.t_avg = ringStats.h_avg = ringStats.p_avg = ringStats.co2_avg = 0;
     }
+
+    if (scd_cnt > 0) {
+        ringStats.co2_avg /= scd_cnt;
+    } else {
+        ringStats.co2_avg = 0;
+    }   
 
     if (ve_cnt > 0) {
         ringStats.v_avg   /= ve_cnt;
@@ -184,6 +193,13 @@ void calcRingStats(uint32_t hours)
 
     ringStats.hours = hours;
     ringStats.valid = true;
+    ringStats.valid_sensors = 0;
+    if (bme_cnt > 0)     ringStats.valid_sensors |= VALID_BME;
+    if (ve_cnt > 0)      ringStats.valid_sensors |= VALID_VE;
+    if (mppt1_cnt > 0)   ringStats.valid_sensors |= VALID_MPPT1;
+    if (mppt2_cnt > 0)   ringStats.valid_sensors |= VALID_MPPT2;
+    if (charger_cnt > 0) ringStats.valid_sensors |= VALID_CHARGER;
+    if (scd_cnt > 0)     ringStats.valid_sensors |= VALID_CO2;
 }
 
 void sensorPollSetup()
@@ -293,6 +309,14 @@ void sensorPollLoop()
     {
         //lastRingMs = millis();
         RingEntry &e = ringBuffer[ringHead];
+        e.valid_flags = 0;
+        if (sensorData.bme_valid)      e.valid_flags |= VALID_BME;
+        if (sensorData.vedirect_valid) e.valid_flags |= VALID_VE;
+        if (sensorData.mppt1_valid)    e.valid_flags |= VALID_MPPT1;
+        if (sensorData.mppt2_valid)    e.valid_flags |= VALID_MPPT2;
+        if (sensorData.charger_valid)  e.valid_flags |= VALID_CHARGER;
+        if (sensorData.co2_valid) e.valid_flags |= VALID_CO2;
+
         e.T   = sensorData.temperature;
         e.H   = sensorData.humidity;
         e.P   = sensorData.pressure;

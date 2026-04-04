@@ -64,10 +64,10 @@ struct RingStats {
     float charger_v_min, charger_v_max, charger_v_avg;
     float charger_i_min, charger_i_max, charger_i_avg;
     uint32_t hours;
-    bool valid;
+    bool valid; //überhaupt daten
+    uint8_t valid_sensors;  //flags für die sensorarten, damit ui weiß, was es anzeigen kann
 };
 
-#define RING_INTERVAL_MS    2000
 #define RING_MAX_ENTRIES    75600  // 42h × 1800 Einträge/h, alle 2 sek
 
 struct RingEntry {
@@ -79,7 +79,19 @@ struct RingEntry {
     float    mppt2_V, mppt2_I, mppt2_PV;
     uint16_t mppt1_yield, mppt2_yield;
     float    charger_V, charger_I;
+    uint8_t valid_flags; //flags
 };
+
+#define VALID_BME     (1<<0) 
+/* bitfeld spart platz 
+1 << 0 = 00000001 = 1
+1 << 1 = 00000010 = 2
+*/
+#define VALID_VE      (1<<1)
+#define VALID_MPPT1   (1<<2)
+#define VALID_MPPT2   (1<<3)
+#define VALID_CHARGER (1<<4)
+#define VALID_CO2     (1<<5)
 
 extern bool sensorDataUpdated; //bei update ui aktualisieren
 extern RingEntry *ringBuffer;

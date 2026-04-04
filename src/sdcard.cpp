@@ -22,11 +22,15 @@ namespace
 
     static char *s_historyBuffer = nullptr;  //speicher auf psram 
 
-    struct CsvRow
-    {
+   struct CsvRow {
         time_t  ts;
         float   V, I, VS, SOC, P_W, T_C, H_pct, P_hPa;
         int     TTG, CO2;
+        float   mppt1_V, mppt1_I, mppt1_PV;
+        float   mppt2_V, mppt2_I, mppt2_PV;
+        float   charger_V, charger_I;
+        uint8_t valid_flags;
+        int     fields;  // Anzahl erfolgreich gelesener Felder
         bool    valid;
     };
 
@@ -49,7 +53,8 @@ namespace
     // ----------------------------------------------------------------
     void writeHeader(File &f)
     {
-        f.println("Datum,Zeit,V,I,VS,SOC,TTG_min,P_W,T_C,H_pct,P_hPa,CO2_ppm");
+        //f.println("Datum,Zeit,V,I,VS,SOC,TTG_min,P_W,T_C,H_pct,P_hPa,CO2_ppm");
+        f.println("Datum,Zeit,V,I,VS,SOC,TTG_min,P_W,T_C,H_pct,P_hPa,CO2_ppm,MPPT1_V,MPPT1_I,MPPT1_PV,MPPT2_V,MPPT2_I,MPPT2_PV,Charger_V,Charger_I,valid_flags");
     }
     // ----------------------------------------------------------------
     // Eine Zeile mit aktuellen Messwerten schreiben
@@ -96,20 +101,38 @@ namespace
             strftime(zeit,  sizeof(zeit),  "%H:%M:%S", &t);
         }
 
-        char line[160];
+        uint8_t flags = 0;
+        if (sensorData.bme_valid)      flags |= VALID_BME;
+        if (sensorData.vedirect_valid) flags |= VALID_VE;
+        if (sensorData.co2_valid)      flags |= VALID_CO2;
+        if (sensorData.mppt1_valid)    flags |= VALID_MPPT1;
+        if (sensorData.mppt2_valid)    flags |= VALID_MPPT2;
+        if (sensorData.charger_valid)  flags |= VALID_CHARGER;
+
+        char line[240];
         snprintf(line, sizeof(line),
-            "%s,%s,%.3f,%.3f,%.3f,%.1f,%d,%.1f,%.1f,%.1f,%.1f,%d",
+            "%s,%s,%.3f,%.3f,%.3f,%.1f,%d,%.1f,%.1f,%.1f,%.1f,%d,%.2f,%.2f,%.1f,%.2f,%.2f,%.1f,%.2f,%.2f,%d",
             datum, zeit,
-            sensorData.vedirect_valid ? sensorData.voltage         : -1.0f,
+            sensorData.vedirect_valid ? sensorData.voltage         : 0.0f,
             sensorData.vedirect_valid ? sensorData.current         : 0.0f,
-            sensorData.vedirect_valid ? sensorData.voltage_starter : -1.0f,
-            sensorData.vedirect_valid ? sensorData.soc             : -1.0f,
+            sensorData.vedirect_valid ? sensorData.voltage_starter : 0.0f,
+            sensorData.vedirect_valid ? sensorData.soc             : 0.0f,
             sensorData.vedirect_valid ? sensorData.ttg             : -1,
             sensorData.vedirect_valid ? sensorData.power           : 0.0f,
-            sensorData.bme_valid      ? sensorData.temperature     : -99.0f,
-            sensorData.bme_valid      ? sensorData.humidity        : -1.0f,
-            sensorData.bme_valid      ? sensorData.pressure        : -1.0f,
-            sensorData.co2_valid      ? sensorData.co2_ppm         : -1);
+            sensorData.bme_valid      ? sensorData.temperature     : 0.0f,
+            sensorData.bme_valid      ? sensorData.humidity        : 0.0f,
+            sensorData.bme_valid      ? sensorData.pressure        : 0.0f,
+            sensorData.co2_valid      ? sensorData.co2_ppm         : 0,
+            sensorData.mppt1_valid    ? sensorData.mppt1_voltage   : 0.0f,
+            sensorData.mppt1_valid    ? sensorData.mppt1_current   : 0.0f,
+            sensorData.mppt1_valid    ? sensorData.mppt1_pv_power  : 0.0f,
+            sensorData.mppt2_valid    ? sensorData.mppt2_voltage   : 0.0f,
+            sensorData.mppt2_valid    ? sensorData.mppt2_current   : 0.0f,
+            sensorData.mppt2_valid    ? sensorData.mppt2_pv_power  : 0.0f,
+            sensorData.charger_valid  ? sensorData.charger_voltage : 0.0f,
+            sensorData.charger_valid  ? sensorData.charger_current : 0.0f,
+            flags);
+
 
         f.println(line);
         f.close();
@@ -130,24 +153,30 @@ namespace
         return mktime(&t);
     }
 
-    CsvRow parseLine(const char *line)
-    {
+    CsvRow parseLine(const char *line) {
         CsvRow row = {};
-        // Format: Datum,Zeit,V,I,VS,SOC,TTG_min,P_W,T_C,H_pct,P_hPa,CO2_ppm
         char datum[16], zeit[12];
-        int n = sscanf(line, "%10[^,],%8[^,],%f,%f,%f,%f,%d,%f,%f,%f,%f,%d",
-                    datum, zeit,
-                    &row.V, &row.I, &row.VS, &row.SOC,
-                    &row.TTG, &row.P_W, &row.T_C, &row.H_pct, &row.P_hPa, &row.CO2);
-        if (n < 12) return row;
 
-        // Timestamp zusammenbauen
+        // Neues Format versuchen (21 Felder)
+        row.fields = sscanf(line,
+            "%10[^,],%8[^,],%f,%f,%f,%f,%d,%f,%f,%f,%f,%d,%f,%f,%f,%f,%f,%f,%f,%f,%hhu",
+            datum, zeit,
+            &row.V, &row.I, &row.VS, &row.SOC,
+            &row.TTG, &row.P_W, &row.T_C, &row.H_pct, &row.P_hPa, &row.CO2,
+            &row.mppt1_V, &row.mppt1_I, &row.mppt1_PV,
+            &row.mppt2_V, &row.mppt2_I, &row.mppt2_PV,
+            &row.charger_V, &row.charger_I,
+            &row.valid_flags);
+
+        if (row.fields < 12) return row;  // ungültig
+
         char dt[20];
         snprintf(dt, sizeof(dt), "%sT%.5s", datum, zeit);
-        row.ts = parseDateTime(dt);        
+        row.ts = parseDateTime(dt);
         row.valid = true;
         return row;
     }
+    
 
     // Interne Logik – schreibt in beliebiges Print-Ziel
     static void sdGetHistoryImpl(const String &from, const String &to, int points, Print &output)
@@ -225,6 +254,9 @@ namespace
             char   lbl[20];
             float  T, H, P, V, I, SOC, PW, VS;
             int    CO2;
+            float  mppt1_V, mppt1_I, mppt1_PV;
+            float  mppt2_V, mppt2_I, mppt2_PV;
+            float  charger_V, charger_I;
         };
 
         int maxBuckets = points + 2;
@@ -282,6 +314,16 @@ namespace
                         T+=row.T_C; H+=row.H_pct; Pr+=row.P_hPa;
                         CO2+=row.CO2; V+=row.V; I+=row.I;
                         SOC+=row.SOC; PW+=row.P_W; VS+=row.VS;
+                        if (row.fields == 21) {
+                            mppt1_V  += row.mppt1_V;
+                            mppt1_I  += row.mppt1_I;
+                            mppt1_PV += row.mppt1_PV;
+                            mppt2_V  += row.mppt2_V;
+                            mppt2_I  += row.mppt2_I;
+                            mppt2_PV += row.mppt2_PV;
+                            charger_V += row.charger_V;
+                            charger_I += row.charger_I;
+                        }
                         cnt++; rowIdx++;
                         if (rowIdx % bucketSize == 0) flushBucket();
                     }
@@ -440,7 +482,7 @@ void sdFillRingBuffer(uint32_t hours)
             {
                 char tmp[32];
                 f.readBytesUntil('\n', tmp, sizeof(tmp)); // Header
-                char line[160];
+                char line[256];
                 while (f.available())
                 {
                     size_t len = f.readBytesUntil('\n', line, sizeof(line)-1);
@@ -455,15 +497,37 @@ void sdFillRingBuffer(uint32_t hours)
                     for (int rep = 0; rep < reps; rep++) //reps ist bei standarddefines auf 30 
                     {
                         RingEntry &e = ringBuffer[ringHead];
-                        e.T   = row.T_C;
-                        e.H   = row.H_pct;
-                        e.P   = row.P_hPa;
-                        e.CO2 = row.CO2;
-                        e.V   = row.V;
-                        e.I   = row.I;
-                        e.SOC = row.SOC;
-                        e.PW  = row.P_W;
-                        e.VS  = row.VS;
+                        e.valid_flags = 0;
+                        if (row.fields == 21) {
+                            // neues Format: flags direkt übernehmen
+                            e.valid_flags = row.valid_flags;
+                        } else {
+                            // altes Format: aus Sentinel-Werten ableiten
+                            if (row.T_C    > -99.0f) e.valid_flags |= VALID_BME;
+                            if (row.V      > -1.0f)  e.valid_flags |= VALID_VE;
+                            if (row.CO2    > -1)     e.valid_flags |= VALID_CO2;
+                        }
+
+                        e.T   = (e.valid_flags & VALID_BME) ? row.T_C   : 0.0f;
+                        e.H   = (e.valid_flags & VALID_BME) ? row.H_pct : 0.0f;
+                        e.P   = (e.valid_flags & VALID_BME) ? row.P_hPa : 0.0f;
+                        e.CO2 = (e.valid_flags & VALID_CO2) ? row.CO2   : 0;
+                        e.V   = (e.valid_flags & VALID_VE)  ? row.V     : 0.0f;
+                        e.I   = (e.valid_flags & VALID_VE)  ? row.I     : 0.0f;
+                        e.SOC = (e.valid_flags & VALID_VE)  ? row.SOC   : 0.0f;
+                        e.PW  = (e.valid_flags & VALID_VE)  ? row.P_W   : 0.0f;
+                        e.VS  = (e.valid_flags & VALID_VE)  ? row.VS    : 0.0f;
+                        if (row.fields == 21) {
+                            e.mppt1_V   = row.mppt1_V;
+                            e.mppt1_I   = row.mppt1_I;
+                            e.mppt1_PV  = row.mppt1_PV;
+                            e.mppt2_V   = row.mppt2_V;
+                            e.mppt2_I   = row.mppt2_I;
+                            e.mppt2_PV  = row.mppt2_PV;
+                            e.charger_V = row.charger_V;
+                            e.charger_I = row.charger_I;
+                        }
+
                         ringHead = (ringHead + 1) % RING_MAX_ENTRIES;
                         if (ringCount < RING_MAX_ENTRIES) ringCount++;
                     }

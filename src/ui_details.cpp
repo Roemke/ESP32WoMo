@@ -169,99 +169,86 @@ void uiDetailsSetup(lv_obj_t *tab)
 // ----------------------------------------------------------------
 // Update – aus loop() aufrufen
 // ----------------------------------------------------------------
-void uiDetailsUpdate(bool force) {
-    static uint32_t lastUpdate = 0;
-    if (!force && millis() - lastUpdate < 2000) return;
-    lastUpdate = millis();
+void uiDetailsUpdate(bool force)
+{
+    static uint32_t lastMs = 0;
+    if (!force && millis() - lastMs < 2000) return;
+    lastMs = millis();
 
     if (!s_table) return;
 
-    // Aktuelle Werte
-    if (sensorData.bme_valid)
-    {
+    // ---- Aktuelle Werte ----
+    if (sensorData.bme_valid) {
         setCellF(ROW_TEMP,  COL_ACTUAL, sensorData.temperature, 1, "C");
         setCellF(ROW_HUM,   COL_ACTUAL, sensorData.humidity,    1, "%");
         setCellF(ROW_PRESS, COL_ACTUAL, sensorData.pressure,    1, "hPa");
-        setCellI(ROW_CO2,   COL_ACTUAL, sensorData.co2_ppm,        "ppm");
     }
-    if (sensorData.vedirect_valid)
-    {
+    if (sensorData.co2_valid)
+        setCellI(ROW_CO2, COL_ACTUAL, sensorData.co2_ppm, "ppm");
+
+    if (sensorData.vedirect_valid) {
         setCellF(ROW_VOLT,  COL_ACTUAL, sensorData.voltage,         2, "V");
         setCellF(ROW_CURR,  COL_ACTUAL, sensorData.current,         2, "A");
         setCellF(ROW_SOC,   COL_ACTUAL, sensorData.soc,             1, "%");
         setCellF(ROW_POWER, COL_ACTUAL, sensorData.power,           1, "W");
         setCellF(ROW_VS,    COL_ACTUAL, sensorData.voltage_starter, 2, "V");
     }
-    if (sensorData.mppt1_valid)
-    {
+    if (sensorData.mppt1_valid) {
         setCellF(ROW_MPPT1_V,  COL_ACTUAL, sensorData.mppt1_voltage,  2, "V");
         setCellF(ROW_MPPT1_PV, COL_ACTUAL, sensorData.mppt1_pv_power, 1, "W");
     }
-    if (sensorData.mppt2_valid)
-    {
+    if (sensorData.mppt2_valid) {
         setCellF(ROW_MPPT2_V,  COL_ACTUAL, sensorData.mppt2_voltage,  2, "V");
         setCellF(ROW_MPPT2_PV, COL_ACTUAL, sensorData.mppt2_pv_power, 1, "W");
-    }    
+    }
     if (sensorData.charger_valid) {
         setCellF(ROW_CHARGER_V, COL_ACTUAL, sensorData.charger_voltage, 2, "V");
         setCellF(ROW_CHARGER_I, COL_ACTUAL, sensorData.charger_current, 2, "A");
     }
-    // Stats
-    if (ringStats.valid)
-    {
-        setCellF(ROW_TEMP,  COL_MIN, ringStats.t_min,   1, "C");
-        setCellF(ROW_TEMP,  COL_MAX, ringStats.t_max,   1, "C");
-        setCellF(ROW_TEMP,  COL_AVG, ringStats.t_avg,   1, "C");
 
-        setCellF(ROW_HUM,   COL_MIN, ringStats.h_min,   1, "%");
-        setCellF(ROW_HUM,   COL_MAX, ringStats.h_max,   1, "%");
-        setCellF(ROW_HUM,   COL_AVG, ringStats.h_avg,   1, "%");
+    // ---- Stats ----
+    if (!ringStats.valid) return;
 
-        setCellF(ROW_PRESS, COL_MIN, ringStats.p_min,   1, "hPa");
-        setCellF(ROW_PRESS, COL_MAX, ringStats.p_max,   1, "hPa");
-        setCellF(ROW_PRESS, COL_AVG, ringStats.p_avg,   1, "hPa");
+    // Hilfsmakro: Zelle setzen oder --- wenn Sensor keine Daten hat
+    auto statsRow = [&](int row, uint8_t flag, float mn, float mx, float avg, int dec, const char *unit) {
+        if (ringStats.valid_sensors & flag) {
+            setCellF(row, COL_MIN, mn,  dec, unit);
+            setCellF(row, COL_MAX, mx,  dec, unit);
+            setCellF(row, COL_AVG, avg, dec, unit);
+        } else {
+            setCell(row, COL_MIN, "---");
+            setCell(row, COL_MAX, "---");
+            setCell(row, COL_AVG, "---");
+        }
+    };
+    auto statsRowI = [&](int row, uint8_t flag, int mn, int mx, int avg, const char *unit) {
+        if (ringStats.valid_sensors & flag) {
+            setCellI(row, COL_MIN, mn,  unit);
+            setCellI(row, COL_MAX, mx,  unit);
+            setCellI(row, COL_AVG, avg, unit);
+        } else {
+            setCell(row, COL_MIN, "---");
+            setCell(row, COL_MAX, "---");
+            setCell(row, COL_AVG, "---");
+        }
+    };
 
-        setCellI(ROW_CO2,   COL_MIN, ringStats.co2_min,    "ppm");
-        setCellI(ROW_CO2,   COL_MAX, ringStats.co2_max,    "ppm");
-        setCellI(ROW_CO2,   COL_AVG, ringStats.co2_avg,    "ppm");
+    statsRow(ROW_TEMP,  VALID_BME,     ringStats.t_min,   ringStats.t_max,   ringStats.t_avg,   1, "C");
+    statsRow(ROW_HUM,   VALID_BME,     ringStats.h_min,   ringStats.h_max,   ringStats.h_avg,   1, "%");
+    statsRow(ROW_PRESS, VALID_BME,     ringStats.p_min,   ringStats.p_max,   ringStats.p_avg,   1, "hPa");
+    statsRowI(ROW_CO2,  VALID_CO2,     ringStats.co2_min, ringStats.co2_max, ringStats.co2_avg, "ppm");
 
-        setCellF(ROW_VOLT,  COL_MIN, ringStats.v_min,   2, "V");
-        setCellF(ROW_VOLT,  COL_MAX, ringStats.v_max,   2, "V");
-        setCellF(ROW_VOLT,  COL_AVG, ringStats.v_avg,   2, "V");
+    statsRow(ROW_VOLT,  VALID_VE,      ringStats.v_min,   ringStats.v_max,   ringStats.v_avg,   2, "V");
+    statsRow(ROW_CURR,  VALID_VE,      ringStats.i_min,   ringStats.i_max,   ringStats.i_avg,   2, "A");
+    statsRow(ROW_SOC,   VALID_VE,      ringStats.soc_min, ringStats.soc_max, ringStats.soc_avg, 1, "%");
+    statsRow(ROW_POWER, VALID_VE,      ringStats.pw_min,  ringStats.pw_max,  ringStats.pw_avg,  1, "W");
+    statsRow(ROW_VS,    VALID_VE,      ringStats.vs_min,  ringStats.vs_max,  ringStats.vs_avg,  2, "V");
 
-        setCellF(ROW_CURR,  COL_MIN, ringStats.i_min,   2, "A");
-        setCellF(ROW_CURR,  COL_MAX, ringStats.i_max,   2, "A");
-        setCellF(ROW_CURR,  COL_AVG, ringStats.i_avg,   2, "A");
+    statsRow(ROW_MPPT1_V,  VALID_MPPT1, ringStats.mppt1_v_min,  ringStats.mppt1_v_max,  ringStats.mppt1_v_avg,  2, "V");
+    statsRow(ROW_MPPT1_PV, VALID_MPPT1, ringStats.mppt1_pv_min, ringStats.mppt1_pv_max, ringStats.mppt1_pv_avg, 1, "W");
+    statsRow(ROW_MPPT2_V,  VALID_MPPT2, ringStats.mppt2_v_min,  ringStats.mppt2_v_max,  ringStats.mppt2_v_avg,  2, "V");
+    statsRow(ROW_MPPT2_PV, VALID_MPPT2, ringStats.mppt2_pv_min, ringStats.mppt2_pv_max, ringStats.mppt2_pv_avg, 1, "W");
 
-        setCellF(ROW_SOC,   COL_MIN, ringStats.soc_min, 1, "%");
-        setCellF(ROW_SOC,   COL_MAX, ringStats.soc_max, 1, "%");
-        setCellF(ROW_SOC,   COL_AVG, ringStats.soc_avg, 1, "%");
-
-        setCellF(ROW_POWER, COL_MIN, ringStats.pw_min,  1, "W");
-        setCellF(ROW_POWER, COL_MAX, ringStats.pw_max,  1, "W");
-        setCellF(ROW_POWER, COL_AVG, ringStats.pw_avg,  1, "W");
-
-        setCellF(ROW_VS,    COL_MIN, ringStats.vs_min,  2, "V");
-        setCellF(ROW_VS,    COL_MAX, ringStats.vs_max,  2, "V");
-        setCellF(ROW_VS,    COL_AVG, ringStats.vs_avg,  2, "V");
-        setCellF(ROW_MPPT1_V,  COL_MIN, ringStats.mppt1_v_min,  2, "V");
-        setCellF(ROW_MPPT1_V,  COL_MAX, ringStats.mppt1_v_max,  2, "V");
-        setCellF(ROW_MPPT1_V,  COL_AVG, ringStats.mppt1_v_avg,  2, "V");
-        setCellF(ROW_MPPT1_PV, COL_MIN, ringStats.mppt1_pv_min, 1, "W");
-        setCellF(ROW_MPPT1_PV, COL_MAX, ringStats.mppt1_pv_max, 1, "W");
-        setCellF(ROW_MPPT1_PV, COL_AVG, ringStats.mppt1_pv_avg, 1, "W");
-        setCellF(ROW_MPPT2_V,  COL_MIN, ringStats.mppt2_v_min,  2, "V");
-        setCellF(ROW_MPPT2_V,  COL_MAX, ringStats.mppt2_v_max,  2, "V");
-        setCellF(ROW_MPPT2_V,  COL_AVG, ringStats.mppt2_v_avg,  2, "V");
-        setCellF(ROW_MPPT2_PV, COL_MIN, ringStats.mppt2_pv_min, 1, "W");
-        setCellF(ROW_MPPT2_PV, COL_MAX, ringStats.mppt2_pv_max, 1, "W");
-        setCellF(ROW_MPPT2_PV, COL_AVG, ringStats.mppt2_pv_avg, 1, "W");
-
-        setCellF(ROW_CHARGER_V, COL_MIN, ringStats.charger_v_min, 2, "V");
-        setCellF(ROW_CHARGER_V, COL_MAX, ringStats.charger_v_max, 2, "V");
-        setCellF(ROW_CHARGER_V, COL_AVG, ringStats.charger_v_avg, 2, "V");
-        setCellF(ROW_CHARGER_I, COL_MIN, ringStats.charger_i_min, 2, "A");
-        setCellF(ROW_CHARGER_I, COL_MAX, ringStats.charger_i_max, 2, "A");
-        setCellF(ROW_CHARGER_I, COL_AVG, ringStats.charger_i_avg, 2, "A");
-    }
+    statsRow(ROW_CHARGER_V, VALID_CHARGER, ringStats.charger_v_min, ringStats.charger_v_max, ringStats.charger_v_avg, 2, "V");
+    statsRow(ROW_CHARGER_I, VALID_CHARGER, ringStats.charger_i_min, ringStats.charger_i_max, ringStats.charger_i_avg, 2, "A");
 }

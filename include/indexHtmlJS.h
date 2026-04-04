@@ -175,56 +175,81 @@ async function loadStats() {
     const d = await r.json();
     if (!d.valid) return;
 
-    const s = (key, suffix, dec) => {
-      setText('st-' + key + '-min', d[key.toUpperCase()].min.toFixed(dec) + suffix);
-      setText('st-' + key + '-max', d[key.toUpperCase()].max.toFixed(dec) + suffix);
-      setText('st-' + key + '-avg', d[key.toUpperCase()].avg.toFixed(dec) + suffix);
+    const vs = d.valid_sensors || 0;
+    const VALID_BME     = 1;
+    const VALID_VE      = 2;
+    const VALID_MPPT1   = 4;
+    const VALID_MPPT2   = 8;
+    const VALID_CHARGER = 16;
+    const VALID_CO2     = 32;
+
+    const showStats = (key, suffix, dec, flag) => {
+      const cells = ['min','max','avg'];
+      if (vs & flag) {
+        cells.forEach(c => setText('st-' + key + '-' + c, 
+          d[key.toUpperCase()][c].toFixed(dec) + ' ' + suffix));
+      } else {
+        cells.forEach(c => setText('st-' + key + '-' + c, '---'));
+      }
     };
 
-    s('t',   ' °C', 1);
-    s('h',   ' %%',  1);
-    s('p',   ' hPa', 1);
-    s('v',   ' V',  2);
-    s('i',   ' A',  2);
-    s('soc', ' %%',  1);
-    s('pw',  ' W',  1);
-    s('vs',  ' V',  2);
+    showStats('t',   '°C',  1, VALID_BME);
+    showStats('h',   '%%',   1, VALID_BME);
+    showStats('p',   'hPa', 1, VALID_BME);
+    showStats('v',   'V',   2, VALID_VE);
+    showStats('i',   'A',   2, VALID_VE);
+    showStats('soc', '%%',   1, VALID_VE);
+    showStats('pw',  'W',   1, VALID_VE);
+    showStats('vs',  'V',   2, VALID_VE);
 
     // CO2 separat – int
-    setText('st-co2-min', d.CO2.min + ' ppm');
-    setText('st-co2-max', d.CO2.max + ' ppm');
-    setText('st-co2-avg', d.CO2.avg + ' ppm');
-    
-    // MPPT1
-    if (d.MPPT1_V) {
+    if (vs & VALID_CO2) {
+      setText('st-co2-min', d.CO2.min + ' ppm');
+      setText('st-co2-max', d.CO2.max + ' ppm');
+      setText('st-co2-avg', d.CO2.avg + ' ppm');
+    } else {
+      ['min','max','avg'].forEach(c => setText('st-co2-' + c, '---'));
+    }
+
+    if (vs & VALID_MPPT1) {
       setText('st-mppt1v-min',  d.MPPT1_V.min.toFixed(2)  + ' V');
       setText('st-mppt1v-max',  d.MPPT1_V.max.toFixed(2)  + ' V');
       setText('st-mppt1v-avg',  d.MPPT1_V.avg.toFixed(2)  + ' V');
       setText('st-mppt1pv-min', d.MPPT1_PV.min.toFixed(1) + ' W');
       setText('st-mppt1pv-max', d.MPPT1_PV.max.toFixed(1) + ' W');
       setText('st-mppt1pv-avg', d.MPPT1_PV.avg.toFixed(1) + ' W');
+    } else {
+      ['mppt1v','mppt1pv'].forEach(k => 
+        ['min','max','avg'].forEach(c => setText('st-' + k + '-' + c, '---')));
     }
-    // MPPT2
-    if (d.MPPT2_V) {
+
+    if (vs & VALID_MPPT2) {
       setText('st-mppt2v-min',  d.MPPT2_V.min.toFixed(2)  + ' V');
       setText('st-mppt2v-max',  d.MPPT2_V.max.toFixed(2)  + ' V');
       setText('st-mppt2v-avg',  d.MPPT2_V.avg.toFixed(2)  + ' V');
       setText('st-mppt2pv-min', d.MPPT2_PV.min.toFixed(1) + ' W');
       setText('st-mppt2pv-max', d.MPPT2_PV.max.toFixed(1) + ' W');
       setText('st-mppt2pv-avg', d.MPPT2_PV.avg.toFixed(1) + ' W');
+    } else {
+      ['mppt2v','mppt2pv'].forEach(k => 
+        ['min','max','avg'].forEach(c => setText('st-' + k + '-' + c, '---')));
     }
-    // Charger
-    if (d.CHARGER_V) {
+
+    if (vs & VALID_CHARGER) {
       setText('st-chargerv-min', d.CHARGER_V.min.toFixed(2) + ' V');
       setText('st-chargerv-max', d.CHARGER_V.max.toFixed(2) + ' V');
       setText('st-chargerv-avg', d.CHARGER_V.avg.toFixed(2) + ' V');
       setText('st-chargeri-min', d.CHARGER_I.min.toFixed(2) + ' A');
       setText('st-chargeri-max', d.CHARGER_I.max.toFixed(2) + ' A');
       setText('st-chargeri-avg', d.CHARGER_I.avg.toFixed(2) + ' A');
+    } else {
+      ['chargerv','chargeri'].forEach(k => 
+        ['min','max','avg'].forEach(c => setText('st-' + k + '-' + c, '---')));
     }
 
   } catch(e) {}
-}  
+}
+
 async function initStatsHours() {
     try {
         const r = await fetch('/api/capacity');
