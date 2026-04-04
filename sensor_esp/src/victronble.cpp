@@ -125,7 +125,7 @@ void victronBleLoop()
 {
     if (!s_initialized) return;
 
-    // Daten als ungültig markieren wenn älter als 30s
+    // Daten als ungültig markieren wenn älter als 30s, timeout, der victron sendet kontinuierlich
     if (bmvData.valid && millis() - bmvData.lastUpdateMs > 30000)
     {
         bmvData.valid = false;

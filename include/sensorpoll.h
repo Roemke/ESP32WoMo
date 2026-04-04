@@ -81,6 +81,7 @@ struct RingEntry {
     float    charger_V, charger_I;
 };
 
+extern bool sensorDataUpdated; //bei update ui aktualisieren
 extern RingEntry *ringBuffer;
 extern RingStats ringStats;
 extern uint32_t   ringHead;   // nächste Schreibposition

@@ -420,6 +420,7 @@ window.addEventListener('load', () => {
     <div class="form-row"><label>BME280 SCL (GPIO)</label>  <input type="number" id="cfg-bme-scl"      value="%BME_SCL%"></div>
     <div class="form-row"><label>BME280 Adresse</label>     <input type="number" id="cfg-bme-addr"     value="%BME_ADDR%"></div>
     <div class="form-row"><label>Messintervall (ms)</label> <input type="number" id="cfg-bme-interval" value="%BME_INTERVAL%"></div>
+    <div class="form-row">(Intervall SCD fest auf 5-10s, mehr nicht sinnvoll, victronble sendet wann er Lust hat)</div> 
     <button class="btn" onclick="saveConfig()">Speichern &amp; Neustart</button>
     <div class="infoField invisible" id="cfgInfo">
       <strong>Konfiguration gespeichert.</strong> Der ESP startet neu.

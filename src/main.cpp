@@ -43,6 +43,7 @@ String processor(const String& var)
     if (var == "SENSOR_ESP_IP")   return String(appConfig.sensor_esp_ip);
     if (var == "WLED_INNEN_IP")   return String(appConfig.wled_innen_ip);
     if (var == "WLED_AUSSEN_IP")  return String(appConfig.wled_aussen_ip);
+    if (var == "SENSOR_POLL_INTERVAL") return String(appConfig.sensor_poll_interval_ms);
     return "";
 }
 
@@ -137,9 +138,12 @@ void handleAppConfigPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, 
         strlcpy(appConfig.wled_innen_ip,  doc["wled_innen_ip"],  sizeof(appConfig.wled_innen_ip));
     if (doc["wled_aussen_ip"].is<const char*>())
         strlcpy(appConfig.wled_aussen_ip, doc["wled_aussen_ip"], sizeof(appConfig.wled_aussen_ip));
+    if (doc["sensor_poll_interval_ms"].is<int>())
+        appConfig.sensor_poll_interval_ms = (int)doc["sensor_poll_interval_ms"];    
     appConfigSave();
     req->send(200, "application/json", "{\"ok\":true}");
-    // kein Neustart nötig – IPs werden beim nächsten Poll aktiv
+    delay(500);
+    ESP.restart();
 }
 
 void handleWifiPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, size_t, size_t)
@@ -381,7 +385,14 @@ void addRoutes()
     server.on("/api/data", HTTP_GET, [](AsyncWebServerRequest *req)
         { req->send(200, "application/json", buildDataJson()); });
 
-
+    //max zeit im ringbuffer    
+    server.on("/api/capacity", HTTP_GET, [](AsyncWebServerRequest *req) {
+        uint32_t maxHours = (uint32_t)((uint64_t)RING_MAX_ENTRIES * 
+                             appConfig.sensor_poll_interval_ms / 1000 / 3600);
+        String out = "{\"maxHours\":" + String(maxHours) + "}";
+        req->send(200, "application/json", out);
+    });
+    
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *req)
         { req->send(200, "text/html", index_html, processor); });
 
@@ -496,13 +507,16 @@ void loop() {
    
     sensorPollLoop();
     sdLoop();
-    
-    //uiHistoryLoop(); //nur noch für browser, das machen wir nicht mehr im display
-    //wledLoop();
 
-    // UI aktualisieren            
-    uiSensorenUpdate();
-    uiChargerUpdate();
-    uiDetailsUpdate();
+    if (sensorDataUpdated) {
+        sensorDataUpdated = false;
+        uiSensorenUpdate(true);
+        uiChargerUpdate(true);
+        uiDetailsUpdate(true);
+    } else {
+        uiSensorenUpdate();
+        uiChargerUpdate();
+        uiDetailsUpdate();
+    }
     uiWledUpdate();
 }

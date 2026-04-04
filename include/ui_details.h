@@ -3,4 +3,4 @@
 #include <lvgl.h>
 
 void uiDetailsSetup(lv_obj_t *tab);
-void uiDetailsUpdate();
+void uiDetailsUpdate(bool force = false);

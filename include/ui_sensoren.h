@@ -12,7 +12,7 @@
 void uiSensorenSetup(lv_obj_t *tab);
 
 // Aktualisiert alle Werte – aus loop() aufrufen
-void uiSensorenUpdate();
+void uiSensorenUpdate(bool force = false);
 
 // IP-Adresse im Klima-Panel setzen
 void uiSensorenSetIP(const String &ip);

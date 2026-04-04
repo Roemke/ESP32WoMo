@@ -7,4 +7,4 @@
 // ----------------------------------------------------------------
 
 void uiChargerSetup(lv_obj_t *tab);
-void uiChargerUpdate();
+void uiChargerUpdate(bool force = false);

@@ -106,10 +106,9 @@ void uiChargerSetup(lv_obj_t *tab)
 // ================================================================
 // Update
 // ================================================================
-void uiChargerUpdate()
-{
+void uiChargerUpdate(bool force) {
     static uint32_t lastUpdate = 0;
-    if (millis() - lastUpdate < 2000) return;
+    if (!force && millis() - lastUpdate < 2000) return;
     lastUpdate = millis();
     char buf[32];
 

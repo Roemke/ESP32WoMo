@@ -8,26 +8,28 @@
 
 SensorData sensorData = {};
 RingEntry *ringBuffer = nullptr;
-uint32_t   ringHead   = 0;
+uint32_t   ringHead   = 0; //erster freier eintrag, bzw. der nächste zu setzende
 uint32_t   ringCount  = 0;
+// Global am Anfang:
+bool sensorDataUpdated = false;
+
 
 RingStats ringStats = {};
-
 void calcRingStats(uint32_t hours)
 {
     ringStats.valid = false;
-    if (!ringBuffer || ringCount == 0) return;
+    if (!ringBuffer || ringCount == 0) return;  //kein eintrag zurück
 
-    // Maximale Anzahl Einträge für den Zeitraum
     uint32_t maxEntries = (hours * 3600 * 1000) / RING_INTERVAL_MS;
     uint32_t entries    = min(ringCount, maxEntries);
-    
-    uint32_t bme_cnt = 0, ve_cnt = 0, mppt1_cnt = 0, mppt2_cnt = 0;
-    
+
+    uint32_t bme_cnt = 0, ve_cnt = 0, mppt1_cnt = 0, mppt2_cnt = 0, charger_cnt = 0;
+
     // Startwerte
-    uint32_t first = (ringHead + RING_MAX_ENTRIES - 1) % RING_MAX_ENTRIES;
+    uint32_t first = (ringHead + RING_MAX_ENTRIES - 1) % RING_MAX_ENTRIES; //letzter gesetzter eintrag
     RingEntry &f = ringBuffer[first];
 
+    //setzte die Min/Max- Werte auf den letzten Verfügbaren eintrag
     ringStats.t_min = ringStats.t_max = f.T;
     ringStats.h_min = ringStats.h_max = f.H;
     ringStats.p_min = ringStats.p_max = f.P;
@@ -45,65 +47,61 @@ void calcRingStats(uint32_t hours)
     ringStats.mppt2_pv_min = ringStats.mppt2_pv_max = f.mppt2_PV;
     ringStats.charger_v_min = ringStats.charger_v_max = f.charger_V;
     ringStats.charger_i_min = ringStats.charger_i_max = f.charger_I;
-    
-    // Rückwärts durch den Ringpuffer – neueste Einträge zuerst
-    ringStats.t_avg = ringStats.h_avg = ringStats.p_avg = 0;
-    ringStats.co2_avg = 0;
+
+    // Avgs zurücksetzen
+    ringStats.t_avg = ringStats.h_avg = ringStats.p_avg = ringStats.co2_avg = 0;
     ringStats.v_avg = ringStats.i_avg = ringStats.soc_avg = ringStats.pw_avg = ringStats.vs_avg = 0;
     ringStats.mppt1_v_avg = ringStats.mppt1_i_avg = ringStats.mppt1_pv_avg = 0;
     ringStats.mppt2_v_avg = ringStats.mppt2_i_avg = ringStats.mppt2_pv_avg = 0;
     ringStats.charger_v_avg = ringStats.charger_i_avg = 0;
-    
-    for (uint32_t i = 0; i < entries; i++)
+
+    for (uint32_t i = 0; i < entries; i++) //entries passens zum zeitintervall
     {
+        //laufe von hinten durch den ringbuffer starte eins vor ringHead
         uint32_t idx = (ringHead + RING_MAX_ENTRIES - 1 - i) % RING_MAX_ENTRIES;
         RingEntry &e = ringBuffer[idx];
 
-        // Nur gültige Werte berücksichtigen
-        if (sensorData.bme_valid)
+        // BME: Temperatur als Indikator (> -40 = gültig)
+        if (e.T > -40.0f)
         {
             bme_cnt++;
             ringStats.t_min = min(ringStats.t_min, e.T);
             ringStats.t_max = max(ringStats.t_max, e.T);
             ringStats.t_avg += e.T;
-
             ringStats.h_min = min(ringStats.h_min, e.H);
             ringStats.h_max = max(ringStats.h_max, e.H);
             ringStats.h_avg += e.H;
-
             ringStats.p_min = min(ringStats.p_min, e.P);
             ringStats.p_max = max(ringStats.p_max, e.P);
             ringStats.p_avg += e.P;
-
             ringStats.co2_min = min(ringStats.co2_min, e.CO2);
             ringStats.co2_max = max(ringStats.co2_max, e.CO2);
             ringStats.co2_avg += e.CO2;
         }
 
-        if (sensorData.vedirect_valid)
+        // VE.Direct: Spannung als Indikator
+        if (e.V > 0.0f)
         {
             ve_cnt++;
             ringStats.v_min = min(ringStats.v_min, e.V);
             ringStats.v_max = max(ringStats.v_max, e.V);
             ringStats.v_avg += e.V;
-
             ringStats.i_min = min(ringStats.i_min, e.I);
             ringStats.i_max = max(ringStats.i_max, e.I);
             ringStats.i_avg += e.I;
-
             ringStats.soc_min = min(ringStats.soc_min, e.SOC);
             ringStats.soc_max = max(ringStats.soc_max, e.SOC);
             ringStats.soc_avg += e.SOC;
-
             ringStats.pw_min = min(ringStats.pw_min, e.PW);
             ringStats.pw_max = max(ringStats.pw_max, e.PW);
             ringStats.pw_avg += e.PW;
-
             ringStats.vs_min = min(ringStats.vs_min, e.VS);
             ringStats.vs_max = max(ringStats.vs_max, e.VS);
             ringStats.vs_avg += e.VS;
         }
-        if (sensorData.mppt1_valid)
+
+        // MPPT1: Spannung als Indikator
+        if (e.mppt1_V > 0.0f)
         {
             mppt1_cnt++;
             ringStats.mppt1_v_min  = min(ringStats.mppt1_v_min,  e.mppt1_V);
@@ -116,7 +114,9 @@ void calcRingStats(uint32_t hours)
             ringStats.mppt1_pv_max = max(ringStats.mppt1_pv_max, e.mppt1_PV);
             ringStats.mppt1_pv_avg += e.mppt1_PV;
         }
-        if (sensorData.mppt2_valid)
+
+        // MPPT2: Spannung als Indikator
+        if (e.mppt2_V > 0.0f)
         {
             mppt2_cnt++;
             ringStats.mppt2_v_min  = min(ringStats.mppt2_v_min,  e.mppt2_V);
@@ -129,8 +129,11 @@ void calcRingStats(uint32_t hours)
             ringStats.mppt2_pv_max = max(ringStats.mppt2_pv_max, e.mppt2_PV);
             ringStats.mppt2_pv_avg += e.mppt2_PV;
         }
-        if (sensorData.charger_valid)
+
+        // Charger: Spannung als Indikator
+        if (e.charger_V > 0.0f)
         {
+            charger_cnt++;
             ringStats.charger_v_min = min(ringStats.charger_v_min, e.charger_V);
             ringStats.charger_v_max = max(ringStats.charger_v_max, e.charger_V);
             ringStats.charger_v_avg += e.charger_V;
@@ -138,53 +141,49 @@ void calcRingStats(uint32_t hours)
             ringStats.charger_i_max = max(ringStats.charger_i_max, e.charger_I);
             ringStats.charger_i_avg += e.charger_I;
         }
-    }
+    } //ende der Schleife
 
-    // Durchschnitt berechnen
-    if (bme_cnt > 0)
-    {
+    // Durchschnitte berechnen, noch die division durch die anzahl gültiger werte, wenn > 0, sonst 0
+    if (bme_cnt > 0) {
         ringStats.t_avg   /= bme_cnt;
         ringStats.h_avg   /= bme_cnt;
         ringStats.p_avg   /= bme_cnt;
         ringStats.co2_avg /= bme_cnt;
-    }
-    else{
+    } else {
         ringStats.t_avg = ringStats.h_avg = ringStats.p_avg = ringStats.co2_avg = 0;
     }
-    if(ve_cnt > 0)
-    {
+
+    if (ve_cnt > 0) {
         ringStats.v_avg   /= ve_cnt;
         ringStats.i_avg   /= ve_cnt;
         ringStats.soc_avg /= ve_cnt;
         ringStats.pw_avg  /= ve_cnt;
         ringStats.vs_avg  /= ve_cnt;
-    }
-    else 
+    } else {
         ringStats.v_avg = ringStats.i_avg = ringStats.soc_avg = ringStats.pw_avg = ringStats.vs_avg = 0;
-    if (mppt1_cnt > 0)
-    {
+    }
+
+    if (mppt1_cnt > 0) {
         ringStats.mppt1_v_avg  /= mppt1_cnt;
         ringStats.mppt1_i_avg  /= mppt1_cnt;
         ringStats.mppt1_pv_avg /= mppt1_cnt;
     }
-    if (mppt2_cnt > 0)
-    {
+
+    if (mppt2_cnt > 0) {
         ringStats.mppt2_v_avg  /= mppt2_cnt;
         ringStats.mppt2_i_avg  /= mppt2_cnt;
         ringStats.mppt2_pv_avg /= mppt2_cnt;
     }
-    // charger_cnt nutzt entries direkt (kein eigener Zähler nötig, da valid-Flag global)
-    if (sensorData.charger_valid && entries > 0)
-    {
-        ringStats.charger_v_avg /= entries;
-        ringStats.charger_i_avg /= entries;
-    }
-    else
+
+    if (charger_cnt > 0) {
+        ringStats.charger_v_avg /= charger_cnt;
+        ringStats.charger_i_avg /= charger_cnt;
+    } else {
         ringStats.charger_v_avg = ringStats.charger_i_avg = 0;
+    }
 
     ringStats.hours = hours;
     ringStats.valid = true;
-    //logPrintf("calcRingStats: %lu Einträge, %lu Stunden\n", entries, hours);
 }
 
 void sensorPollSetup()
@@ -203,7 +202,8 @@ void sensorPollLoop()
     if (!wifiIsConnected()) return;
 
     static uint32_t lastPollMs = 0;
-    if (millis() - lastPollMs < SENSOR_POLL_INTERVAL_MS) return;
+    if (millis() - lastPollMs < appConfig.sensor_poll_interval_ms) return;
+    
     lastPollMs = millis();
 
     HTTPClient http;
@@ -286,10 +286,12 @@ void sensorPollLoop()
     if (sensorData.co2_valid)
         sensorData.co2_ppm = doc["co2"]["ppm"] | 0;
     
-    static uint32_t lastRingMs = 0;
-    if (millis() - lastRingMs >= RING_INTERVAL_MS && ringBuffer)
+    sensorDataUpdated = true; //neue daten da, kann ui aktualisieren
+    
+    //static uint32_t lastRingMs = 0;
+    if (ringBuffer)// (millis() - lastRingMs >= RING_INTERVAL_MS && ringBuffer)
     {
-        lastRingMs = millis();
+        //lastRingMs = millis();
         RingEntry &e = ringBuffer[ringHead];
         e.T   = sensorData.temperature;
         e.H   = sensorData.humidity;
@@ -314,12 +316,8 @@ void sensorPollLoop()
         if (ringCount < RING_MAX_ENTRIES) ringCount++;
     }    
 
-    //denn ringbuffer für statistik berechnen, sollte hier passen und nicht stören, nicht on demand berechnen    
-    static uint32_t lastStatsMs = 0;
-    if (millis() - lastStatsMs > 1000)
-    {
-        lastStatsMs = millis();
-        calcRingStats(ringStats.hours > 0 ? ringStats.hours : 12);
-    }
+    
+    calcRingStats(ringStats.hours > 0 ? ringStats.hours : 12);
+    
     //logPrintln("SensorPoll: OK");
 }

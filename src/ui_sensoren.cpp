@@ -145,10 +145,9 @@ void uiSensorenSetup(lv_obj_t *tab)
 // ================================================================
 // Update – aus loop() aufrufen
 // ================================================================
-void uiSensorenUpdate()
-{
+void uiSensorenUpdate(bool force) {
     static uint32_t lastUpdate = 0;
-    if (millis() - lastUpdate < 2000) return;
+    if (!force && millis() - lastUpdate < 2000) return;
     lastUpdate = millis();
     char buf[32];
 

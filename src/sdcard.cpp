@@ -5,6 +5,7 @@
 #include "sensorpoll.h"
 #include "wifi.h"
 #include "sdcard.h"
+#include "appconfig.h"
 
 
 //#include "vedirect.h"
@@ -420,8 +421,8 @@ void sdFillRingBuffer(uint32_t hours)
 
     time_t tsTo   = time(nullptr);
     time_t tsFrom = tsTo - hours * 3600;
-    int reps = SD_LOG_INTERVAL_MS / RING_INTERVAL_MS; // = 30
-
+    //int reps = SD_LOG_INTERVAL_MS / RING_INTERVAL_MS; // = 30
+    int reps = SD_LOG_INTERVAL_MS / appConfig.sensor_poll_interval_ms;
     logPrintf("sdFillRingBuffer: lade letzte %lu Stunden\n", hours);
 
     time_t day = tsFrom;

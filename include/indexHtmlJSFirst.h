@@ -236,7 +236,8 @@ async function saveIPs() {
   const body = {
     sensor_esp_ip:  getVal('cfgSensorIP'),
     wled_innen_ip:  getVal('cfgWledInnen'),
-    wled_aussen_ip: getVal('cfgWledAussen')
+    wled_aussen_ip: getVal('cfgWledAussen'),
+    sensor_poll_interval_ms: parseInt(getVal('cfgPollInterval'))
   };
   try {
     await fetch('/api/config', {
@@ -429,11 +430,19 @@ window.addEventListener('load', () => {
   <div class="form-row"><label>Sensor-ESP IP</label>  <input type="text" id="cfgSensorIP"   value="%SENSOR_ESP_IP%"></div>
   <div class="form-row"><label>WLED Innen IP</label>  <input type="text" id="cfgWledInnen"  value="%WLED_INNEN_IP%"></div>
   <div class="form-row"><label>WLED Außen IP</label>  <input type="text" id="cfgWledAussen" value="%WLED_AUSSEN_IP%"></div>
+  
+  <h2>Polling</h2>
+  <div class="form-row">
+    <label>Sensor-Poll Intervall (ms)</label>
+    <input type="number" id="cfgPollInterval" value="%SENSOR_POLL_INTERVAL%" min="1100" step="100">
+  </div>
+  <p style="color:#666688; font-size:0.85em; margin-top:-6px;">
+    Mindestens 2000ms empfohlen. Kleinere Werte können die UI verlangsamen, Sensor liest mit 1000ms.
+  </p>
   <button class="btn" onclick="saveIPs()">Speichern</button>
   <div class="infoField invisible" id="ipInfo">
-    <strong>IPs gespeichert.</strong> Änderungen werden beim nächsten Poll aktiv.
+    <strong>IPs / Intervall gespeichert.</strong> Änderungen werden beim nächsten Poll aktiv.
   </div>
-
   <h2>WLAN Konfiguration</h2>
   <div class="form-row"><label>SSID</label>    <input type="text"     id="wifiSsid" placeholder="Netzwerkname"></div>
   <div class="form-row"><label>Passwort</label><input type="password" id="wifiPass" placeholder="Passwort"></div>

@@ -1,5 +1,6 @@
 #include "ui_details.h"
 #include "sensorpoll.h"
+#include "appconfig.h"
 
 // ----------------------------------------------------------------
 // Private State
@@ -33,7 +34,9 @@ static uint32_t   s_hours    = 12;
 #define ROW_MPPT1_PV  11
 #define ROW_MPPT2_V   12
 #define ROW_MPPT2_PV  13
-#define ROW_COUNT     14
+#define ROW_CHARGER_V   14
+#define ROW_CHARGER_I   15
+#define ROW_COUNT       16  
 
 // ----------------------------------------------------------------
 // Hilfsfunktion: Zelle setzen
@@ -86,7 +89,14 @@ void uiDetailsSetup(lv_obj_t *tab)
     lv_obj_set_pos(lbl, 8, 14);
 
     s_dropdown = lv_dropdown_create(ctrl);
-    lv_dropdown_set_options(s_dropdown, "1h\n4h\n8h\n12h\n16h\n24h\n42h");
+        // Maximale Stunden berechnen
+    uint32_t maxHours = (uint32_t)((uint64_t)RING_MAX_ENTRIES * 
+                        appConfig.sensor_poll_interval_ms / 1000 / 3600);
+
+    char opts[64];
+    snprintf(opts, sizeof(opts), "1h\n4h\n8h\n12h\n16h\n24h\nMax(%luh)", maxHours);
+    lv_dropdown_set_options(s_dropdown, opts);
+  
     lv_dropdown_set_selected(s_dropdown, 3); // 12h = index 3
     lv_obj_set_width(s_dropdown, 100);
     lv_obj_set_pos(s_dropdown, 200, 10);
@@ -95,9 +105,11 @@ void uiDetailsSetup(lv_obj_t *tab)
     lv_obj_set_style_text_font(s_dropdown, &lv_font_montserrat_14, 0);
 
     lv_obj_add_event_cb(s_dropdown, [](lv_event_t *e)
-    {
+    { //im event muss ich maxhours neu berechnen
         uint16_t sel = lv_dropdown_get_selected(s_dropdown);
-        const uint32_t hours[] = {1, 4, 8, 12, 24, 42};
+        uint32_t maxHours = (uint32_t)((uint64_t)RING_MAX_ENTRIES * 
+                        appConfig.sensor_poll_interval_ms / 1000 / 3600);
+        const uint32_t hours[] = {1, 4, 8, 12, 16, 24, maxHours};
         s_hours = hours[sel];
         calcRingStats(s_hours);
     }, LV_EVENT_VALUE_CHANGED, nullptr);
@@ -141,6 +153,8 @@ void uiDetailsSetup(lv_obj_t *tab)
     setCell(ROW_MPPT1_PV, COL_NAME, "MPPT1 PV");
     setCell(ROW_MPPT2_V,  COL_NAME, "MPPT2 Span.");
     setCell(ROW_MPPT2_PV, COL_NAME, "MPPT2 PV");
+    setCell(ROW_CHARGER_V, COL_NAME, "Charger V");
+    setCell(ROW_CHARGER_I, COL_NAME, "Charger I");
 
     // Header-Zeile stylen
     for (int col = 0; col < 5; col++)
@@ -155,11 +169,10 @@ void uiDetailsSetup(lv_obj_t *tab)
 // ----------------------------------------------------------------
 // Update – aus loop() aufrufen
 // ----------------------------------------------------------------
-void uiDetailsUpdate()
-{
-    static uint32_t lastMs = 0;
-    if (millis() - lastMs < 2000) return;
-    lastMs = millis();
+void uiDetailsUpdate(bool force) {
+    static uint32_t lastUpdate = 0;
+    if (!force && millis() - lastUpdate < 2000) return;
+    lastUpdate = millis();
 
     if (!s_table) return;
 
@@ -189,6 +202,10 @@ void uiDetailsUpdate()
         setCellF(ROW_MPPT2_V,  COL_ACTUAL, sensorData.mppt2_voltage,  2, "V");
         setCellF(ROW_MPPT2_PV, COL_ACTUAL, sensorData.mppt2_pv_power, 1, "W");
     }    
+    if (sensorData.charger_valid) {
+        setCellF(ROW_CHARGER_V, COL_ACTUAL, sensorData.charger_voltage, 2, "V");
+        setCellF(ROW_CHARGER_I, COL_ACTUAL, sensorData.charger_current, 2, "A");
+    }
     // Stats
     if (ringStats.valid)
     {
@@ -239,5 +256,12 @@ void uiDetailsUpdate()
         setCellF(ROW_MPPT2_PV, COL_MIN, ringStats.mppt2_pv_min, 1, "W");
         setCellF(ROW_MPPT2_PV, COL_MAX, ringStats.mppt2_pv_max, 1, "W");
         setCellF(ROW_MPPT2_PV, COL_AVG, ringStats.mppt2_pv_avg, 1, "W");
+
+        setCellF(ROW_CHARGER_V, COL_MIN, ringStats.charger_v_min, 2, "V");
+        setCellF(ROW_CHARGER_V, COL_MAX, ringStats.charger_v_max, 2, "V");
+        setCellF(ROW_CHARGER_V, COL_AVG, ringStats.charger_v_avg, 2, "V");
+        setCellF(ROW_CHARGER_I, COL_MIN, ringStats.charger_i_min, 2, "A");
+        setCellF(ROW_CHARGER_I, COL_MAX, ringStats.charger_i_max, 2, "A");
+        setCellF(ROW_CHARGER_I, COL_AVG, ringStats.charger_i_avg, 2, "A");
     }
 }

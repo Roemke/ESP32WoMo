@@ -42,8 +42,7 @@
 
 // ---- Sensor-ESP --------------------------------------------
 #define SENSOR_ESP_IP_DEFAULT   "192.168.42.3"
-#define SENSOR_POLL_INTERVAL_MS 5000
-
+#define SENSOR_POLL_INTERVAL_MS  2000 //kleiner nicht sinnvoll, sensor liest bei 1000 in der voreinstellung
 // ---- Logging -----------------------------------------------
 #define LOG_BUFFER_SIZE     50
 #define LOG_LINE_LENGTH     128

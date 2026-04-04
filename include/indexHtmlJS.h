@@ -225,6 +225,22 @@ async function loadStats() {
 
   } catch(e) {}
 }  
+async function initStatsHours() {
+    try {
+        const r = await fetch('/api/capacity');
+        const d = await r.json();
+        const maxHours = d.maxHours;
+        const sel = document.getElementById('statsHours');
+        sel.innerHTML = '';
+        [1, 4, 8, 12, 16, 24, maxHours].forEach(h => {
+            const opt = document.createElement('option');
+            opt.value = h;
+            opt.textContent = h === maxHours ? 'Max (' + h + 'h)' : h + 'h';
+            if (h === 12) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    } catch(e) {}
+}
 
 // ================================================================
 // Polling – alle 2 Sekunden /api/data abrufen
@@ -463,6 +479,7 @@ window.addEventListener('load', () => {
   setInterval(poll, 2000);
   pollLog();
   setInterval(pollLog, 5000);
+  initStatsHours();
   loadStats();
   setInterval(loadStats, 2000); // alle 2 Sekunden
 });
@@ -708,9 +725,18 @@ window.addEventListener('load', () => {
   <div class="form-row"><label>Sensor-ESP IP</label>  <input type="text" id="cfgSensorIP"   value="%SENSOR_ESP_IP%"></div>
   <div class="form-row"><label>WLED Innen IP</label>  <input type="text" id="cfgWledInnen"  value="%WLED_INNEN_IP%"></div>
   <div class="form-row"><label>WLED Außen IP</label>  <input type="text" id="cfgWledAussen" value="%WLED_AUSSEN_IP%"></div>
-  <button class="btn" onclick="saveIPs()">Speichern</button>
+  <h2>Polling</h2>
+  <div class="form-row">
+    <label>Sensor-Poll Intervall (ms)</label>
+    <input type="number" id="cfgPollInterval" value="%SENSOR_POLL_INTERVAL%" min="1100" step="100">
+  </div>
+  <p style="color:#666688; font-size:0.85em; margin-top:-6px;">
+    Mindestens 2000ms empfohlen. Kleinere Werte können die UI verlangsamen, Sensor liest mit 1000ms.
+  </p>
+  
+  <button class="btn" onclick="saveIPs()">Speichern / Neustart</button>
   <div class="infoField invisible" id="ipInfo">
-    <strong>IPs gespeichert.</strong> Änderungen werden beim nächsten Poll aktiv.
+    <strong>IPs / Intervall gespeichert.</strong> Neustart erfolgt gleich.
   </div>
 
   <h2>WLAN Konfiguration</h2>
