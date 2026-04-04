@@ -234,6 +234,9 @@ namespace
 
         // ---- Durchlauf 2: Downsampling direkt als JSON ----
         float T=0,H=0,Pr=0,V=0,I=0,SOC=0,PW=0,VS=0;
+        float mppt1_V=0,mppt1_I=0,mppt1_PV=0;
+        float mppt2_V=0,mppt2_I=0,mppt2_PV=0;
+        float charger_V=0,charger_I=0;
         int   CO2=0, cnt=0, rowIdx=0;
         time_t firstTs = 0;
         char tmp[32];
@@ -284,7 +287,19 @@ namespace
             b.SOC = roundf(SOC/cnt* 10)  / 10.0f;
             b.PW  = roundf(PW/cnt * 10)  / 10.0f;
             b.VS  = roundf(VS/cnt * 10)  / 10.0f;
+            b.mppt1_V  = roundf(mppt1_V/cnt  * 100) / 100.0f;
+            b.mppt1_I  = roundf(mppt1_I/cnt  * 100) / 100.0f;
+            b.mppt1_PV = roundf(mppt1_PV/cnt * 10)  / 10.0f;
+            b.mppt2_V  = roundf(mppt2_V/cnt  * 100) / 100.0f;
+            b.mppt2_I  = roundf(mppt2_I/cnt  * 100) / 100.0f;
+            b.mppt2_PV = roundf(mppt2_PV/cnt * 10)  / 10.0f;
+            b.charger_V = roundf(charger_V/cnt * 100) / 100.0f;
+            b.charger_I = roundf(charger_I/cnt * 100) / 100.0f;
+            // Reset
             T=0;H=0;Pr=0;V=0;I=0;SOC=0;PW=0;CO2=0;VS=0;cnt=0;
+            mppt1_V=0;mppt1_I=0;mppt1_PV=0;
+            mppt2_V=0;mppt2_I=0;mppt2_PV=0;
+            charger_V=0;charger_I=0;
         };
 
         day = tsFrom;
@@ -300,7 +315,7 @@ namespace
                 if (f)
                 {
                     f.readBytesUntil('\n', tmp, sizeof(tmp)); // Header
-                    char line[160];
+                    char line[256];
                     while (f.available())
                     {
                         size_t len = f.readBytesUntil('\n', line, sizeof(line)-1);
@@ -361,6 +376,22 @@ namespace
         for (int i=0; i<bucketCount; i++) { if (i) output.print(','); output.print(buckets[i].PW,1); }
         output.print("],\"VS\":[");
         for (int i=0; i<bucketCount; i++) { if (i) output.print(','); output.print(buckets[i].VS,2); }
+        output.print("],\"MPPT1_V\":[");
+        for (int i=0;i<bucketCount;i++){if(i)output.print(',');output.print(buckets[i].mppt1_V,2);}
+        output.print("],\"MPPT1_I\":[");
+        for (int i=0;i<bucketCount;i++){if(i)output.print(',');output.print(buckets[i].mppt1_I,2);}
+        output.print("],\"MPPT1_PV\":[");
+        for (int i=0;i<bucketCount;i++){if(i)output.print(',');output.print(buckets[i].mppt1_PV,1);}
+        output.print("],\"MPPT2_V\":[");
+        for (int i=0;i<bucketCount;i++){if(i)output.print(',');output.print(buckets[i].mppt2_V,2);}
+        output.print("],\"MPPT2_I\":[");
+        for (int i=0;i<bucketCount;i++){if(i)output.print(',');output.print(buckets[i].mppt2_I,2);}
+        output.print("],\"MPPT2_PV\":[");
+        for (int i=0;i<bucketCount;i++){if(i)output.print(',');output.print(buckets[i].mppt2_PV,1);}
+        output.print("],\"CHARGER_V\":[");
+        for (int i=0;i<bucketCount;i++){if(i)output.print(',');output.print(buckets[i].charger_V,2);}
+        output.print("],\"CHARGER_I\":[");
+        for (int i=0;i<bucketCount;i++){if(i)output.print(',');output.print(buckets[i].charger_I,2);}
 
         snprintf(tmp, sizeof(tmp), "],\"total\":%d,\"points\":%d}", total, bucketCount);
         output.print(tmp);
