@@ -142,7 +142,7 @@ void handleAppConfigPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, 
         appConfig.sensor_poll_interval_ms = (int)doc["sensor_poll_interval_ms"];    
     appConfigSave();
     req->send(200, "application/json", "{\"ok\":true}");
-    delay(500);
+    delay(100);
     ESP.restart();
 }
 

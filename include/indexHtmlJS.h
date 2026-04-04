@@ -433,14 +433,15 @@ async function saveIPs() {
   const body = {
     sensor_esp_ip:  getVal('cfgSensorIP'),
     wled_innen_ip:  getVal('cfgWledInnen'),
-    wled_aussen_ip: getVal('cfgWledAussen')
+    wled_aussen_ip: getVal('cfgWledAussen'),
+    sensor_poll_interval_ms:  parseInt(getVal('cfgPollInterval'))
   };
   try {
+    document.getElementById('ipInfo').classList.remove('invisible');
     await fetch('/api/config', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(body)
     });
-    document.getElementById('ipInfo').classList.remove('invisible');
   } catch(e) {}
 }
 
