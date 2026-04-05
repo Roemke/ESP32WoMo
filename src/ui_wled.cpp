@@ -1,7 +1,6 @@
 #include "ui_wled.h"
 #include "appconfig.h"
-#include <HTTPClient.h>
-#include <ArduinoJson.h>
+#include "wled.h"
 
 // ----------------------------------------------------------------
 // Vordefinierte Farben
@@ -9,7 +8,7 @@
 static const uint32_t WLED_COLORS[] = {
     0xFF0000,  // Rot
     0xFF8800,  // Orange
-    0xFFFF00,  // Gelb
+    0xFFC800,  // Gelb
     0xFFD0A0,  // Warm-Weiß
     0xFFFFFF,  // Weiß
     0x8000FF,  // Violett
@@ -23,8 +22,9 @@ static const uint32_t WLED_COLORS[] = {
 // State pro WLED-Instanz
 // ----------------------------------------------------------------
 struct WledBox {
-    const char *ip;
-    bool        on;
+    WledInstance *inst; 
+    bool        on; //state
+    bool        online; // die wled sind häufiger mal stromlos, das ist normal
     uint8_t     bri;
     uint8_t     r, g, b;
 
@@ -39,25 +39,6 @@ struct WledBox {
 
 static WledBox s_boxes[2];
 
-// ----------------------------------------------------------------
-// WLED API senden
-// ----------------------------------------------------------------
-static void wledPost(const char *ip, const char *json) {
-    if (!ip || strlen(ip) == 0) return;
-    HTTPClient http;
-    String url = "http://" + String(ip) + "/json/state";
-    http.begin(url);
-    http.addHeader("Content-Type", "application/json");
-    http.setTimeout(2000);
-    http.POST((uint8_t*)json, strlen(json));
-    http.end();
-}
-
-static void wledSendColor(WledBox &box) {
-    char json[64];
-    snprintf(json, sizeof(json), "{\"seg\":[{\"col\":[[%d,%d,%d]]}]}", box.r, box.g, box.b);
-    wledPost(box.ip, json);
-}
 
 static void updatePreview(WledBox &box) {
     // Farbe mit Helligkeit skalieren
@@ -68,30 +49,14 @@ static void updatePreview(WledBox &box) {
 }
 
 // ----------------------------------------------------------------
-// Status abfragen
+// Status anwenden
 // ----------------------------------------------------------------
-static void wledGetState(WledBox &box) {
-    if (!box.ip || strlen(box.ip) == 0) return;
-    HTTPClient http;
-    String url = "http://" + String(box.ip) + "/json/state";
-    http.begin(url);
-    http.setTimeout(2000);
-    int code = http.GET();
-    if (code == 200) {
-        JsonDocument doc;
-        deserializeJson(doc, http.getStream());
-        box.on  = doc["on"]  | false;
-        box.bri = doc["bri"] | 128;
-        if (doc["seg"][0]["col"][0].is<JsonArray>()) {
-            box.r = doc["seg"][0]["col"][0][0] | 255;
-            box.g = doc["seg"][0]["col"][0][1] | 255;
-            box.b = doc["seg"][0]["col"][0][2] | 255;
-        }
-    }
-    http.end();
-}
-
 static void wledApplyState(WledBox &box) {
+    if (!box.online) {
+        lv_obj_set_style_bg_color(box.btnPower, lv_color_hex(0xCC2222), 0);
+        lv_label_set_text(box.lblPower, LV_SYMBOL_WARNING " Offline");
+        return;
+    }
     lv_obj_set_style_bg_color(box.btnPower,
         box.on ? lv_color_hex(0x2e7d32) : lv_color_hex(0x444466), 0);
     lv_label_set_text(box.lblPower, box.on ? LV_SYMBOL_POWER " AN" : LV_SYMBOL_POWER " AUS");
@@ -157,16 +122,12 @@ static void buildBox(WledBox &box, lv_obj_t *panel, const char *title) {
     lv_obj_set_style_radius(box.btnPower, 6, 0);
     box.lblPower = lv_label_create(box.btnPower);
     lv_label_set_text(box.lblPower, LV_SYMBOL_POWER " AUS");
-    lv_obj_center(box.lblPower);
+    lv_obj_center(box.lblPower);    
     lv_obj_add_event_cb(box.btnPower, [](lv_event_t *e) {
         WledBox *b = (WledBox*)lv_event_get_user_data(e);
-        b->on = !b->on;
-        char json[32];
-        snprintf(json, sizeof(json), "{\"on\":%s}", b->on ? "true" : "false");
-        wledPost(b->ip, json);
+        wledSetState(*b->inst, !b->inst->lastState);
         wledApplyState(*b);
     }, LV_EVENT_CLICKED, &box);
-
     // Vorschau-Kreis
     box.preview = lv_obj_create(panel);
     lv_obj_set_size(box.preview, 36, 36);
@@ -192,14 +153,12 @@ static void buildBox(WledBox &box, lv_obj_t *panel, const char *title) {
     lv_obj_add_event_cb(box.sliderBri, [](lv_event_t *e) {
         WledBox *b = (WledBox*)lv_event_get_user_data(e);
         b->bri = lv_slider_get_value((lv_obj_t*)lv_event_get_target(e));
-        updatePreview(*b);  // sofort Vorschau aktualisieren
+        updatePreview(*b);
     }, LV_EVENT_VALUE_CHANGED, &box);
     lv_obj_add_event_cb(box.sliderBri, [](lv_event_t *e) {
         WledBox *b = (WledBox*)lv_event_get_user_data(e);
         b->bri = lv_slider_get_value((lv_obj_t*)lv_event_get_target(e));
-        char json[32];
-        snprintf(json, sizeof(json), "{\"bri\":%d}", b->bri);
-        wledPost(b->ip, json);
+        wledSendBri(*b->inst, b->bri);
     }, LV_EVENT_RELEASED, &box);
 
     // RGB Slider
@@ -211,7 +170,8 @@ static void buildBox(WledBox &box, lv_obj_t *panel, const char *title) {
     }, LV_EVENT_VALUE_CHANGED, &box);
     lv_obj_add_event_cb(box.sliderR, [](lv_event_t *e) {
         WledBox *b = (WledBox*)lv_event_get_user_data(e);
-        wledSendColor(*b);
+        b->r = lv_slider_get_value((lv_obj_t*)lv_event_get_target(e));
+        wledSendColor(*b->inst, b->r, b->g, b->b);
     }, LV_EVENT_RELEASED, &box);
 
     box.sliderG = makeSlider(panel, "G", 190, 0x22CC22);
@@ -222,7 +182,8 @@ static void buildBox(WledBox &box, lv_obj_t *panel, const char *title) {
     }, LV_EVENT_VALUE_CHANGED, &box);
     lv_obj_add_event_cb(box.sliderG, [](lv_event_t *e) {
         WledBox *b = (WledBox*)lv_event_get_user_data(e);
-        wledSendColor(*b);
+        b->g = lv_slider_get_value((lv_obj_t*)lv_event_get_target(e));
+        wledSendColor(*b->inst, b->r, b->g, b->b);
     }, LV_EVENT_RELEASED, &box);
 
     box.sliderB = makeSlider(panel, "B", 230, 0x2222FF);
@@ -233,9 +194,9 @@ static void buildBox(WledBox &box, lv_obj_t *panel, const char *title) {
     }, LV_EVENT_VALUE_CHANGED, &box);
     lv_obj_add_event_cb(box.sliderB, [](lv_event_t *e) {
         WledBox *b = (WledBox*)lv_event_get_user_data(e);
-        wledSendColor(*b);
+        b->b = lv_slider_get_value((lv_obj_t*)lv_event_get_target(e));
+        wledSendColor(*b->inst, b->r, b->g, b->b);
     }, LV_EVENT_RELEASED, &box);
-
     // Farbbuttons
     const int btnSize = 34;
     const int btnGap  = 9;
@@ -265,9 +226,9 @@ static void buildBox(WledBox &box, lv_obj_t *panel, const char *title) {
             lv_slider_set_value(cd->box->sliderG, cd->box->g, LV_ANIM_OFF);
             lv_slider_set_value(cd->box->sliderB, cd->box->b, LV_ANIM_OFF);
             updatePreview(*cd->box);
-            wledSendColor(*cd->box);
+            wledSendColor(*cd->box->inst, cd->box->r, cd->box->g, cd->box->b);
         }, LV_EVENT_CLICKED, cd);
-    }
+    }    
 
     // Random Button
     /*
@@ -289,7 +250,7 @@ static void buildBox(WledBox &box, lv_obj_t *panel, const char *title) {
         wledSendColor(*b);
     }, LV_EVENT_CLICKED, &box);
     */
-    }
+}
 
 // ================================================================
 // Setup
@@ -300,31 +261,38 @@ void uiWledSetup(lv_obj_t *tab) {
     lv_obj_set_style_pad_all(tab, 4, 0);
     lv_obj_clear_flag(tab, LV_OBJ_FLAG_SCROLLABLE);
 
-    s_boxes[0].ip = appConfig.wled_innen_ip;
-    s_boxes[1].ip = appConfig.wled_aussen_ip;
-
+    s_boxes[0].inst = &wledConfig.innen;
+    s_boxes[1].inst = &wledConfig.aussen;
+// s_boxes[0].ip und s_boxes[1].ip entfernen
+    
     lv_obj_t *p0 = makePanel(tab,   0, 4, 388, 392);
     lv_obj_t *p1 = makePanel(tab, 404, 4, 388, 392);
-
+    
     buildBox(s_boxes[0], p0, "WLED Innen");
     buildBox(s_boxes[1], p1, "WLED Aussen");
-
-    wledGetState(s_boxes[0]);
     wledApplyState(s_boxes[0]);
-    wledGetState(s_boxes[1]);
     wledApplyState(s_boxes[1]);
+
 }
 
 // ================================================================
-// Update – alle 5 Sekunden
+// Update – einfach nur daten übernehmen 
 // ================================================================
 void uiWledUpdate() {
-    static uint32_t lastUpdate = 0;
-    if (millis() - lastUpdate < 5000) return;
-    lastUpdate = millis();
+    s_boxes[0].on  = wledConfig.innen.lastState;
+    s_boxes[0].online = wledConfig.innen.online;
+    s_boxes[0].bri = wledConfig.innen.bri;
+    s_boxes[0].r   = wledConfig.innen.r;
+    s_boxes[0].g   = wledConfig.innen.g;
+    s_boxes[0].b   = wledConfig.innen.b;
 
-    wledGetState(s_boxes[0]);
+    s_boxes[1].on  = wledConfig.aussen.lastState;
+    s_boxes[1].online = wledConfig.aussen.online;
+    s_boxes[1].bri = wledConfig.aussen.bri;
+    s_boxes[1].r   = wledConfig.aussen.r;
+    s_boxes[1].g   = wledConfig.aussen.g;
+    s_boxes[1].b   = wledConfig.aussen.b;
+
     wledApplyState(s_boxes[0]);
-    wledGetState(s_boxes[1]);
     wledApplyState(s_boxes[1]);
 }

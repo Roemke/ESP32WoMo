@@ -442,8 +442,8 @@ void setup() {
     sdSetup();
     Serial.println("SD OK");
 
-    //wledSetup();
-    Serial.println("WLED noch zu tun ");   
+    wledSetup();
+    //Serial.println("WLED noch zu tun ");   
 
     ElegantOTA.begin(&server);
 
@@ -486,7 +486,7 @@ void loop() {
     static uint32_t lastHeapLog = 0;
     // In loop(), einmalig nach NTP suchen:
     static bool ntpSynced = false;
-    if (!ntpSynced && wifiTimeValid()) {
+    if (!ntpSynced && wifiTimeValid()) {//duerfte auch ohne gehen
         ntpSynced = true;
         ESP_LOGI("NTP", "sync nachträglich");
         // sdFillRingBuffer nochmal aufrufen falls vorher kein Sync
