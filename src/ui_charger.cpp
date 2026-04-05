@@ -4,6 +4,7 @@
 // ---- Widget-Handles ----
 static lv_obj_t *s_ch_v     = nullptr;
 static lv_obj_t *s_ch_i     = nullptr;
+static lv_obj_t *s_ch_p     = nullptr;  
 static lv_obj_t *s_ch_state = nullptr;
 
 static lv_obj_t *s_m1_v     = nullptr;
@@ -82,7 +83,9 @@ void uiChargerSetup(lv_obj_t *tab)
     makeTitle(p_ch, "Landstrom (IP22)");
     s_ch_v     = makeRow(p_ch, "Spannung:", row_start);
     s_ch_i     = makeRow(p_ch, "Strom:",    row_start + row_step);
-    s_ch_state = makeRow(p_ch, "Status:",   row_start + row_step * 2);
+    s_ch_p     = makeRow(p_ch, "Leistung:", row_start + row_step * 2);  
+    s_ch_state = makeRow(p_ch, "Status:",   row_start + row_step * 3);
+    
 
     // ---- MPPT1 (mitte) ----
     lv_obj_t *p_m1 = makePanel(tab, gap + pw + gap, 4, pw, ph);
@@ -119,12 +122,16 @@ void uiChargerUpdate(bool force) {
         lv_label_set_text(s_ch_v, buf);
         snprintf(buf, sizeof(buf), "%.2f A", sensorData.charger_current);
         lv_label_set_text(s_ch_i, buf);
-        lv_label_set_text(s_ch_state, sensorData.charger_stateStr);
+        snprintf(buf, sizeof(buf), "%.1f W",                          // neu
+        sensorData.charger_voltage * sensorData.charger_current); // neu
+        lv_label_set_text(s_ch_p, buf);                               // neu
+        lv_label_set_text(s_ch_state, sensorData.charger_stateStr);        
     }
     else
     {
         lv_label_set_text(s_ch_v,     "---");
         lv_label_set_text(s_ch_i,     "---");
+        lv_label_set_text(s_ch_p,     "---"); 
         lv_label_set_text(s_ch_state, "---");
     }
 

@@ -316,6 +316,7 @@ async function poll() {
     if (d.charger && d.charger.valid) {
       setBadge('chargerV',     d.charger.V        + ' V',  'neutral');
       setBadge('chargerI',     d.charger.I        + ' A',  'neutral');
+      setBadge('chargerP',     (d.charger.V * d.charger.I).toFixed(1) + ' W', 'neutral'); 
       setBadge('chargerState', d.charger.stateStr || '---', 'neutral');
     }
 
@@ -587,6 +588,7 @@ window.addEventListener('load', () => {
       <h2>Ladegerät (IP22)</h2>
       <div class="kv"><label>Spannung:</label> <span class="badge neutral" id="chargerV">---</span></div>
       <div class="kv"><label>Strom:</label>    <span class="badge neutral" id="chargerI">---</span></div>
+      <div class="kv"><label>Leistung:</label> <span class="badge neutral" id="chargerP">---</span></div>
       <div class="kv"><label>Status:</label>   <span class="badge neutral" id="chargerState">---</span></div>
     </div>
     <!-- MPPT1 -->
