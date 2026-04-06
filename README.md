@@ -1,6 +1,6 @@
 # ESP32 WoMo Monitor
 
-A dual-ESP32 monitoring and control system for a motorhome (Wohnmobil), providing real-time sensor data, battery monitoring, solar charge controller tracking, and lighting control via a touchscreen display and web interface.
+A dual-ESP32 monitoring and control system for a motorhome / camper (Wohnmobil), providing real-time sensor data, battery monitoring, solar charge controller tracking, and lighting control via a touchscreen display and web interface.
 
 ## Why Two ESP32s?
 
@@ -17,8 +17,8 @@ This separation keeps responsibilities clean, avoids BLE/WiFi/display resource c
 ### Display ESP32 (ESP32WoMo)
 - Board: ESP32-S3 with 800×480 RGB display (GT911 touch controller)
 - SD card for data logging and history
-- **WLED**: LED lighting control (Innen/Außen) via WiFi/JSON API
 - WiFi for web interface and NTP time sync
+- Bluetooth devices from Victron (BMV 712, MPPT 75/15, IP22 Charger)
 
 ### Sensor ESP32 (sensor_esp)
 - Board: ESP32-S3 DevKit
@@ -27,6 +27,12 @@ This separation keeps responsibilities clean, avoids BLE/WiFi/display resource c
 - **Victron BMV712**: Battery monitor via BLE
 - **Victron MPPT (×2)**: Solar charge controllers via BLE
 - **Victron Blue Smart IP22**: Battery charger via BLE
+
+### Other ###
+- WLED: LED lighting control (Innen/Außen) via WiFi/JSON API, two seperateesp8266 / esp32 running wled
+- some led stripes
+- voltage regulators to have stable 5V from Womo Lithium battery
+- any kind of internet-acces for the ESP32-S3 Display, I've mounted a 4g router in the camper
 
 ## Features
 
@@ -42,7 +48,7 @@ This separation keeps responsibilities clean, avoids BLE/WiFi/display resource c
 ![Display Details Tab](screenshots/display_details.jpg)
 ![Display Beleuchtung Tab](screenshots/display_beleuchtung.jpg)
 
-### Web Interface
+### Web Interface (of Display-ESP)
 - **Status Tab**: Live sensor badges with color-coded warnings
 - **Klima-Verlauf**: Climate history charts from SD card
 - **Batterie-Verlauf**: Battery history charts from SD card
@@ -69,17 +75,17 @@ Old CSV files (12 fields, without MPPT/Charger/valid_flags) are still supported 
 
 ## Ring Buffer
 
-The display ESP maintains an in-PSRAM ring buffer of recent measurements for live statistics. Buffer capacity depends on the configured poll interval:
+The display ESP maintains a ring buffer (in PSRAM)  of recent measurements for live statistics. Buffer capacity depends on the configured poll interval:
 
 ```
 capacity (hours) = RING_MAX_ENTRIES × poll_interval_ms / 3600000
 ```
 
-At the default 2000ms poll interval and 75600 entries, this gives approximately 42 hours of history. On startup, the ring buffer is pre-filled from the SD card.
+At the default 2000ms poll interval and 75600 entries (fixed), this gives approximately 42 hours of history. On startup, the ring buffer is pre-filled from the SD card.
 
 ## Configuration
 
-All settings are persistent via LittleFS:
+Most settings are configurable and persistent via LittleFS:
 
 | Setting | Default | Description |
 |---|---|---|
@@ -88,7 +94,7 @@ All settings are persistent via LittleFS:
 | `wled_aussen_ip` | `192.168.42.8` | IP of outdoor WLED |
 | `sensor_poll_interval_ms` | `2000` | How often to fetch sensor data (min 2000ms recommended) |
 
-WiFi supports static IP with configurable gateway and DNS.
+WiFi supports static IP with configurable gateway and DNS (not at sensor_esp, that one need no internet-access)
 
 ## Project Structure
 
