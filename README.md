@@ -102,9 +102,9 @@ Most settings are configurable and persistent via LittleFS:
 
 | Setting | Default | Description |
 |---|---|---|
-| `sensor_esp_ip` | `192.168.42.6` | IP of the sensor ESP |
-| `wled_innen_ip` | `192.168.42.7` | IP of indoor WLED |
-| `wled_aussen_ip` | `192.168.42.8` | IP of outdoor WLED |
+| `sensor_esp_ip` | `192.168.42.3` | IP of the sensor ESP |
+| `wled_innen_ip` | `192.168.42.6` | IP of indoor WLED |
+| `wled_aussen_ip` | `192.168.42.7` | IP of outdoor WLED |
 | `sensor_poll_interval_ms` | `2000` | How often to fetch sensor data (min 2000ms recommended) |
 
 WiFi supports static IP with configurable gateway and DNS (not at sensor_esp, that one need no internet-access)
@@ -165,7 +165,8 @@ Supported formats: `.png`, `.jpg`, `.gif`. GitHub renders them inline automatica
 - [VictronBLE](https://github.com/Sh3d/VictronBLE) (modified)
 - ESPAsyncWebServer
 - ArduinoJson
+- ElegantOTA
 
 ## License
 
-MIT
+MIT, &copy; Karsten Römke (2026)
