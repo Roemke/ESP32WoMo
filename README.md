@@ -58,10 +58,20 @@ Both systems are developed using platformio and claude for less typing and docum
 - **Konfiguration**: IP addresses, WiFi settings, poll interval
 - **Hilfe**: SD card file browser and log viewer
 
+### Some screenshots of the WebInterface ###
+Status
 ![Web Status](screenshots/web_status.png)
+
+History (Temp)
 ![Web Klima History](screenshots/web_temp_history.png)
+
+History (Power MPPT1)
 ![Web Solar/Charger History](screenshots/web_solar_history.png)
+
+Config
 ![Web Configuration](screenshots/web_config.png)
+
+Help/Log 
 ![Web Help/Log](screenshots/web_help.png)
 
 ## Data Logging
