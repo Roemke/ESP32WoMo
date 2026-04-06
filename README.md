@@ -11,6 +11,7 @@ The project uses two separate ESP32-S3 boards by design:
 - **Sensor ESP32** (`sensor_esp`): Handles all BLE communication with Victron devices (BMV712, MPPT solar chargers, Blue Smart IP22 charger) as well as I2C sensors (BME280 for temperature/humidity/pressure). It exposes all data via a simple JSON HTTP API that the display ESP polls regularly.
 
 This separation keeps responsibilities clean, avoids BLE/WiFi/display resource conflicts, and makes the system more robust.
+Both systems are developed using platformio and claude for less typing and documentation reading. Both systems can be updated via OTA.
 
 ## Hardware
 
@@ -58,8 +59,10 @@ This separation keeps responsibilities clean, avoids BLE/WiFi/display resource c
 - **Hilfe**: SD card file browser and log viewer
 
 ![Web Status](screenshots/web_status.png)
-![Web Solar Charger](screenshots/web_solar_charger.png)
-![Web Konfiguration](screenshots/web_config.png)
+![Web Klima History](screenshots/web_temp_history.png)
+![Web Solar/Charger History](screenshots/web_solar_history.png)
+![Web Configuration](screenshots/web_config.png)
+![Web Help/Log](screenshots/web_help.png)
 
 ## Data Logging
 
