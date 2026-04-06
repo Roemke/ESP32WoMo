@@ -17,6 +17,7 @@ This separation keeps responsibilities clean, avoids BLE/WiFi/display resource c
 ### Display ESP32 (ESP32WoMo)
 - Board: ESP32-S3 with 800×480 RGB display (GT911 touch controller)
 - SD card for data logging and history
+- **WLED**: LED lighting control (Innen/Außen) via WiFi/JSON API
 - WiFi for web interface and NTP time sync
 
 ### Sensor ESP32 (sensor_esp)
@@ -26,7 +27,6 @@ This separation keeps responsibilities clean, avoids BLE/WiFi/display resource c
 - **Victron BMV712**: Battery monitor via BLE
 - **Victron MPPT (×2)**: Solar charge controllers via BLE
 - **Victron Blue Smart IP22**: Battery charger via BLE
-- **WLED**: LED lighting control (Innen/Außen) via WiFi/JSON API
 
 ## Features
 
