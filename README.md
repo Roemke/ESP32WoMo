@@ -122,6 +122,7 @@ sensor_esp/         ← Sensor ESP project (PlatformIO)
     └── victronble/     ← Victron BLE library (modified)
 ```
 
+<!--
 ## How to Add Screenshots
 
 Place screenshot files in a `screenshots/` folder next to this README. Reference them in Markdown like this:
@@ -131,7 +132,7 @@ Place screenshot files in a `screenshots/` folder next to this README. Reference
 ```
 
 Supported formats: `.png`, `.jpg`, `.gif`. GitHub renders them inline automatically.
-
+-->
 ## Dependencies
 
 ### ESP32WoMo
