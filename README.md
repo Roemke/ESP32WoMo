@@ -3,6 +3,18 @@
 A dual-ESP32 monitoring and control system for a motorhome / camper (Wohnmobil), providing real-time sensor data, battery monitoring, solar charge controller tracking, and lighting control via a touchscreen display and web interface.
 Collected data are written ervery 60s to a SD-Card (Display ESP provides a slot for cards up to 32 GB - as far as I remember) 
 
+## Status ##
+It is an experimental project to replace the old raspberry with LCD (10
+years) and I use claude to develop cause it is helpful to search for
+libraries and documentation in the web. Code generation is also done by
+claude, I give my principal approach of using esp32 but I removed
+websockets, not neccessary for this project. I don't like to use an
+additional tool for the user interface so I let generate the code, it is
+always the same.
+
+So no warranties, I used it in the moment, and I am not sure if all
+calculations and history is correct, I checked not in every situation :-)  
+
 ## Why Two ESP32s?
 
 The project uses two separate ESP32-S3 boards by design:
@@ -71,6 +83,10 @@ Help/Log
 - Tab navigation via touch buttons (swipe disabled on lighting tab)
 
 ### Some screenshots of the Display ###
+This screenshots are done with my smartphone. No light (reflections) so the
+quality isn't good, but I was to lazy to implemnent an endpoint for taking
+screenshots. 
+
 Haupt-Tab, Klima und BMV
 ![Display Sensoren Tab](screenshots/sensorTab.jpg)
 
