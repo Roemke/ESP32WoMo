@@ -1,6 +1,7 @@
 # ESP32 WoMo Monitor
 
 A dual-ESP32 monitoring and control system for a motorhome / camper (Wohnmobil), providing real-time sensor data, battery monitoring, solar charge controller tracking, and lighting control via a touchscreen display and web interface.
+Collected data are written ervery 60s to a SD-Card (Display ESP provides a slot for cards up to 32 GB - as far as I remember) 
 
 ## Why Two ESP32s?
 
@@ -37,18 +38,6 @@ Both systems are developed using platformio and claude for less typing and docum
 
 ## Features
 
-### Display (LVGL 9)
-- **Sensoren Tab**: Live climate and battery data with background images
-- **Charger Tab**: Solar MPPT1, MPPT2 and IP22 charger data
-- **Details Tab**: Statistics table (min/max/avg) for all sensors over selectable time periods
-- **Beleuchtung Tab**: WLED lighting control with RGB sliders, color presets, brightness and power per zone
-- Tab navigation via touch buttons (swipe disabled on lighting tab)
-
-![Display Sensoren Tab](screenshots/display_sensoren.jpg)
-![Display Charger Tab](screenshots/display_charger.jpg)
-![Display Details Tab](screenshots/display_details.jpg)
-![Display Beleuchtung Tab](screenshots/display_beleuchtung.jpg)
-
 ### Web Interface (of Display-ESP)
 - **Status Tab**: Live sensor badges with color-coded warnings
 - **Klima-Verlauf**: Climate history charts from SD card
@@ -73,6 +62,27 @@ Config
 
 Help/Log 
 ![Web Help/Log](screenshots/web_help.png)
+
+### Display (LVGL 9)
+- **Sensoren Tab**: Live climate and battery data with background images
+- **Charger Tab**: Solar MPPT1, MPPT2 and IP22 charger data
+- **Details Tab**: Statistics table (min/max/avg) for all sensors over selectable time periods
+- **Beleuchtung Tab**: WLED lighting control with RGB sliders, color presets, brightness and power per zone
+- Tab navigation via touch buttons (swipe disabled on lighting tab)
+
+### Some screenshots of the Display ###
+Haupt-Tab, Klima und BMV
+![Display Sensoren Tab](screenshots/sensorTab.jpg)
+
+Solar und Charger
+![Display Charger Tab](screenshots/chargerTab.jpg)
+
+Details, letzte n Stunden
+![Display Details Tab](screenshots/detailsTab.jpg)
+
+Beleuchtung mit Steuerung
+![Display Beleuchtung Tab](screenshots/beleuchtungTab.jpg)
+
 
 ## Data Logging
 
