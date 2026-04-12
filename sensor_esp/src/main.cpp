@@ -56,13 +56,12 @@ String buildDataJson()
     serializeJson(doc, out);
     return out;
 }
+
 String buildLogJson(uint32_t from)
 {
     JsonDocument doc;
-    uint32_t maxLogs = 10;
-    uint32_t start = (logCount > from + maxLogs) ? logCount - maxLogs : from;
     JsonArray logs = doc["log"].to<JsonArray>();
-    for (uint32_t i = start; i < logCount; i++)
+    for (uint32_t i = from; i < logCount; i++)
     {
         uint32_t idx = (logIndex + LOG_BUFFER_SIZE - logCount + i) % LOG_BUFFER_SIZE;
         logs.add(logBuffer[idx]);
@@ -106,13 +105,17 @@ void handleWifiPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, size_
         req->send(400, "application/json", "{\"error\":\"SSID fehlt\"}");
         return;
     }
-    wifiData.use_static_ip = doc["use_static_ip"] | false;
+    if (doc["use_static_ip"].is<bool>())
+        wifiData.use_static_ip = doc["use_static_ip"].as<bool>();
+    else
+        wifiData.use_static_ip = false;
+              
     strlcpy(wifiData.static_ip, doc["static_ip"] | WIFI_STATIC_IP_DEFAULT, sizeof(wifiData.static_ip));
     strlcpy(wifiData.subnet,    doc["subnet"]    | WIFI_SUBNET_DEFAULT,    sizeof(wifiData.subnet));
     wifiSetCredentials(ssid, doc["password"] | "");
     req->send(200, "application/json", "{\"ok\":true}");
     xTaskCreate([](void*){ vTaskDelay(pdMS_TO_TICKS(500)); ESP.restart(); },
-                "reboot", 1024, nullptr, 1, nullptr);
+                "reboot", 2048, nullptr, 1, nullptr);
 }
 
 void handleReboot(AsyncWebServerRequest *req)

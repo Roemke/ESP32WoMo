@@ -44,7 +44,7 @@
 #define SENSOR_CONFIG_VERSION 2 //ändern bei strukturänderung
 
 // ---- Logging -----------------------------------------------
-#define LOG_BUFFER_SIZE          50
+#define LOG_BUFFER_SIZE          150
 #define LOG_LINE_LENGTH          128
 
 #define BLE_BMV_MAC_DEFAULT      ""

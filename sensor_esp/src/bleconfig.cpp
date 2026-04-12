@@ -1,69 +1,59 @@
 #include "bleconfig.h"
 #include "logging.h"
+#include <Preferences.h>
+
+static const char* BLE_NVS_NAMESPACE = "bleconfig";
 
 BleConfig bleConfig;
 
 bool bleConfigLoad()
 {
-    File f = LittleFS.open(BLE_CONFIG_PATH, "r");
-    if (!f)
-    {
+    Preferences prefs;
+    prefs.begin(BLE_NVS_NAMESPACE, true);
+
+    if (!prefs.isKey("version")) {
+        prefs.end();        
         logPrintln("BleConfig: Keine Konfiguration, nutze Defaults");
         return bleConfigSave();
     }
 
-    JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, f);
-    f.close();
-
-    if (err)
-    {
-        logPrintln("BleConfig: Fehler beim Lesen, nutze Defaults");
-        return false;
-    }
-
-    uint8_t ver = doc["version"] | 0;
-    if (ver != BLE_CONFIG_VERSION)
-    {
+    uint8_t ver = prefs.getUChar("version", 0);
+    if (ver != BLE_CONFIG_VERSION) {
+        prefs.end();
         logPrintln("BleConfig: Version veraltet, schreibe Defaults");
         return bleConfigSave();
     }
 
-    bleConfig.version = BLE_CONFIG_VERSION;
-    strlcpy(bleConfig.bmv_mac,        doc["bmv_mac"]        | BLE_BMV_MAC_DEFAULT,       sizeof(bleConfig.bmv_mac));
-    strlcpy(bleConfig.bmv_bindkey,    doc["bmv_bindkey"]    | BLE_BMV_BINDKEY_DEFAULT,   sizeof(bleConfig.bmv_bindkey));
-    strlcpy(bleConfig.mppt1_mac,      doc["mppt1_mac"]      | BLE_MPPT1_MAC_DEFAULT,     sizeof(bleConfig.mppt1_mac));
-    strlcpy(bleConfig.mppt1_bindkey,  doc["mppt1_bindkey"]  | BLE_MPPT1_BINDKEY_DEFAULT, sizeof(bleConfig.mppt1_bindkey));
-    strlcpy(bleConfig.mppt2_mac,      doc["mppt2_mac"]      | BLE_MPPT2_MAC_DEFAULT,       sizeof(bleConfig.mppt2_mac));
-    strlcpy(bleConfig.mppt2_bindkey,  doc["mppt2_bindkey"]  | BLE_MPPT2_BINDKEY_DEFAULT,   sizeof(bleConfig.mppt2_bindkey));
-    strlcpy(bleConfig.charger_mac,    doc["charger_mac"]    | BLE_CHARGER_MAC_DEFAULT,     sizeof(bleConfig.charger_mac));
-    strlcpy(bleConfig.charger_bindkey,doc["charger_bindkey"]| BLE_CHARGER_BINDKEY_DEFAULT, sizeof(bleConfig.charger_bindkey));
+    prefs.getString("bmv_mac",         bleConfig.bmv_mac,         sizeof(bleConfig.bmv_mac));
+    prefs.getString("bmv_bindkey",     bleConfig.bmv_bindkey,     sizeof(bleConfig.bmv_bindkey));
+    prefs.getString("mppt1_mac",       bleConfig.mppt1_mac,       sizeof(bleConfig.mppt1_mac));
+    prefs.getString("mppt1_bindkey",   bleConfig.mppt1_bindkey,   sizeof(bleConfig.mppt1_bindkey));
+    prefs.getString("mppt2_mac",       bleConfig.mppt2_mac,       sizeof(bleConfig.mppt2_mac));
+    prefs.getString("mppt2_bindkey",   bleConfig.mppt2_bindkey,   sizeof(bleConfig.mppt2_bindkey));
+    prefs.getString("charger_mac",     bleConfig.charger_mac,     sizeof(bleConfig.charger_mac));
+    prefs.getString("charger_bindkey", bleConfig.charger_bindkey, sizeof(bleConfig.charger_bindkey));
+    bleConfig.version = ver;
+    prefs.end();
 
     logPrintf("BleConfig: geladen – BMV=%s MPPT1=%s MPPT2=%s Charger=%s\n",
-        bleConfig.bmv_mac, bleConfig.mppt1_mac, bleConfig.mppt2_mac, bleConfig.charger_mac);
+              bleConfig.bmv_mac, bleConfig.mppt1_mac, bleConfig.mppt2_mac, bleConfig.charger_mac);
     return true;
 }
 
 bool bleConfigSave()
 {
-    File f = LittleFS.open(BLE_CONFIG_PATH, "w");
-    if (!f)
-    {
-        logPrintln("BleConfig: Fehler beim Speichern");
-        return false;
-    }
-    JsonDocument doc;
-    doc["version"]      = BLE_CONFIG_VERSION;
-    doc["bmv_mac"]      = bleConfig.bmv_mac;
-    doc["bmv_bindkey"]  = bleConfig.bmv_bindkey;
-    doc["mppt1_mac"]    = bleConfig.mppt1_mac;
-    doc["mppt1_bindkey"]= bleConfig.mppt1_bindkey;
-    doc["mppt2_mac"]       = bleConfig.mppt2_mac;
-    doc["mppt2_bindkey"]   = bleConfig.mppt2_bindkey;
-    doc["charger_mac"]     = bleConfig.charger_mac;
-    doc["charger_bindkey"] = bleConfig.charger_bindkey;
-    serializeJson(doc, f);
-    f.close();
+    Preferences prefs;
+    prefs.begin(BLE_NVS_NAMESPACE, false);
+    prefs.putUChar("version",        bleConfig.version);
+    prefs.putString("bmv_mac",         bleConfig.bmv_mac);
+    prefs.putString("bmv_bindkey",     bleConfig.bmv_bindkey);
+    prefs.putString("mppt1_mac",       bleConfig.mppt1_mac);
+    prefs.putString("mppt1_bindkey",   bleConfig.mppt1_bindkey);
+    prefs.putString("mppt2_mac",       bleConfig.mppt2_mac);
+    prefs.putString("mppt2_bindkey",   bleConfig.mppt2_bindkey);
+    prefs.putString("charger_mac",     bleConfig.charger_mac);
+    prefs.putString("charger_bindkey", bleConfig.charger_bindkey);
+    prefs.end();
     logPrintln("BleConfig: gespeichert");
     return true;
 }
@@ -71,10 +61,10 @@ bool bleConfigSave()
 String bleConfigToJson()
 {
     JsonDocument doc;
-    doc["bmv_mac"]      = bleConfig.bmv_mac;
-    doc["bmv_bindkey"]  = bleConfig.bmv_bindkey;
-    doc["mppt1_mac"]    = bleConfig.mppt1_mac;
-    doc["mppt1_bindkey"]= bleConfig.mppt1_bindkey;
+    doc["bmv_mac"]         = bleConfig.bmv_mac;
+    doc["bmv_bindkey"]     = bleConfig.bmv_bindkey;
+    doc["mppt1_mac"]       = bleConfig.mppt1_mac;
+    doc["mppt1_bindkey"]   = bleConfig.mppt1_bindkey;
     doc["mppt2_mac"]       = bleConfig.mppt2_mac;
     doc["mppt2_bindkey"]   = bleConfig.mppt2_bindkey;
     doc["charger_mac"]     = bleConfig.charger_mac;

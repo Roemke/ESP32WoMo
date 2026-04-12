@@ -1,71 +1,55 @@
 #include "wifi.h"
+#include <Preferences.h> //auch umgestellt
 
-#define WIFI_DATA_PATH "/wifiData.json"
+static const char* WIFI_NVS_NAMESPACE = "wificonfig";
 
 WifiData wifiData;
 String   wifiMode;
 String   wifiMacAp;
 String   wifiMacSta;
 
-// ----------------------------------------------------------------
-// Credentials in LittleFS speichern
-// ----------------------------------------------------------------
 void wifiSaveData()
 {
-    File f = LittleFS.open(WIFI_DATA_PATH, "w");
-    if (!f)
-    {
-        logPrintln("WiFi: Fehler beim Speichern der Credentials");
-        return;
-    }
-    JsonDocument doc;
-    doc["ssid"]     = wifiData.ssid;
-    doc["password"] = wifiData.password;
-    doc["use_static_ip"] = wifiData.use_static_ip;
-    doc["static_ip"]     = wifiData.static_ip;
-    doc["subnet"]        = wifiData.subnet;
-    doc["magic"]    = wifiData.magic;
-    
-    serializeJson(doc, f);
-    f.close();
-
+    Preferences prefs;
+    prefs.begin(WIFI_NVS_NAMESPACE, false);
+    prefs.putString("ssid",      wifiData.ssid);
+    prefs.putString("password",  wifiData.password);
+    prefs.putBool("use_static",  wifiData.use_static_ip);
+    prefs.putString("static_ip", wifiData.static_ip);
+    prefs.putString("subnet",    wifiData.subnet);
+    prefs.putUInt("magic",       wifiData.magic);
+    prefs.end();
     logPrintln("WiFi: Credentials gespeichert");
 }
 
-// ----------------------------------------------------------------
-// Credentials aus LittleFS laden
-// ----------------------------------------------------------------
 static bool loadWifiData()
 {
-    File f = LittleFS.open(WIFI_DATA_PATH, "r");
-    if (!f)
-    {
+    Preferences prefs;
+    prefs.begin(WIFI_NVS_NAMESPACE, true);
+
+    if (!prefs.isKey("magic")) {
+        prefs.end();
         logPrintln("WiFi: Keine gespeicherten Credentials");
         return false;
     }
-    JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, f);
-    f.close();
 
-    if (err)
-    {
-        logPrintln("WiFi: Fehler beim Lesen der Credentials");
-        return false;
-    }
-
-    strncpy(wifiData.ssid,     doc["ssid"]     | "", sizeof(wifiData.ssid)     - 1);
-    strncpy(wifiData.password, doc["password"] | "", sizeof(wifiData.password) - 1);
-    wifiData.magic = doc["magic"] | 0;
-
-    wifiData.use_static_ip = doc["use_static_ip"] | false;
-    strncpy(wifiData.static_ip, doc["static_ip"] | WIFI_STATIC_IP_DEFAULT, sizeof(wifiData.static_ip) - 1);
-    strncpy(wifiData.subnet,    doc["subnet"]     | WIFI_SUBNET_DEFAULT,    sizeof(wifiData.subnet)    - 1);
-    
-    if (wifiData.magic != 0x43)
-    {
+    uint32_t magic = prefs.getUInt("magic", 0);
+    if (magic != 0x43) {
+        prefs.end();
         logPrintln("WiFi: Credentials ungültig");
         return false;
     }
+
+    prefs.getString("ssid",      wifiData.ssid,      sizeof(wifiData.ssid));
+    prefs.getString("password",  wifiData.password,  sizeof(wifiData.password));
+    wifiData.use_static_ip = prefs.getBool("use_static", false);
+    prefs.getString("static_ip", wifiData.static_ip, sizeof(wifiData.static_ip));
+    prefs.getString("subnet",    wifiData.subnet,     sizeof(wifiData.subnet));
+    wifiData.magic = magic;
+    prefs.end();
+
+    if (wifiData.use_static_ip)
+        logPrintln("WiFi: Statische IP aktiviert");
 
     logPrintf("WiFi: Credentials geladen, SSID=%s\n", wifiData.ssid);
     return true;

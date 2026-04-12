@@ -163,7 +163,11 @@ void handleWifiPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, size_
         return;
     }
     
-    wifiData.use_static_ip = doc["use_static_ip"] | false;
+    if (doc["use_static_ip"].is<bool>())
+        wifiData.use_static_ip = doc["use_static_ip"].as<bool>();
+    else
+        wifiData.use_static_ip = false;
+
     strlcpy(wifiData.static_ip, doc["static_ip"] | WIFI_STATIC_IP_DEFAULT, sizeof(wifiData.static_ip));
     strlcpy(wifiData.subnet,    doc["subnet"]    | WIFI_SUBNET_DEFAULT,    sizeof(wifiData.subnet));
     strlcpy(wifiData.gateway,   doc["gateway"]   | WIFI_GATEWAY_DEFAULT,   sizeof(wifiData.gateway));

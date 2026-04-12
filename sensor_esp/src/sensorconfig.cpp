@@ -1,5 +1,8 @@
 #include "sensorconfig.h"
 #include "logging.h"
+#include <Preferences.h>
+
+static const char* SENSOR_NVS_NAMESPACE = "sensorconfig";
 
 // Defaults aus config.h
 SensorConfig sensorConfig = {
@@ -12,48 +15,44 @@ SensorConfig sensorConfig = {
 
 bool sensorConfigLoad()
 {
-    File f = LittleFS.open(CONFIG_PATH, "r");
-    if (!f)
-    {
+    Preferences prefs;
+    prefs.begin(SENSOR_NVS_NAMESPACE, true);
+
+    if (!prefs.isKey("version")) {
+        prefs.end();
         logPrintln("Config: Keine Konfiguration gefunden, nutze Defaults");
-        return sensorConfigSave(); // Defaults speichern
+        return sensorConfigSave();
     }
-    JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, f);
-    f.close();    
-    if (err)
-    {
-        logPrintln("Config: Fehler beim Lesen, nutze Defaults");
-        return false;
-    }
-    uint8_t ver = doc["version"] | 0;
-    if (ver != SENSOR_CONFIG_VERSION)
-    {
+
+    uint8_t ver = prefs.getUChar("version", 0);
+    if (ver != SENSOR_CONFIG_VERSION) {
+        prefs.end();
         logPrintln("Config: Version veraltet, schreibe Defaults");
         return sensorConfigSave();
     }
 
-    sensorConfig.bme_sda      = doc["bme_sda"]      | BME280_SDA_PIN_DEFAULT;
-    sensorConfig.bme_scl      = doc["bme_scl"]      | BME280_SCL_PIN_DEFAULT;
-    sensorConfig.bme_addr     = doc["bme_addr"]      | BME280_I2C_ADDR_DEFAULT;
-    sensorConfig.bme_interval_ms = doc["bme_interval_ms"] | BME280_INTERVAL_MS_DEFAULT;
+    sensorConfig.bme_sda         = prefs.getUChar("bme_sda",      BME280_SDA_PIN_DEFAULT);
+    sensorConfig.bme_scl         = prefs.getUChar("bme_scl",      BME280_SCL_PIN_DEFAULT);
+    sensorConfig.bme_addr        = prefs.getUChar("bme_addr",     BME280_I2C_ADDR_DEFAULT);
+    sensorConfig.bme_interval_ms = prefs.getUInt("bme_interval",  BME280_INTERVAL_MS_DEFAULT);
+    prefs.end();
 
     logPrintf("Config: geladen – BME SDA=%d SCL=%d \n",
-              sensorConfig.bme_sda, sensorConfig.bme_scl
-              );
+              sensorConfig.bme_sda, sensorConfig.bme_scl);
     return true;
 }
 
+
 bool sensorConfigSave()
 {
-    File f = LittleFS.open(CONFIG_PATH, "w");
-    if (!f)
-    {
-        logPrintln("Config: Fehler beim Speichern");
-        return false;
-    }
-    f.print(sensorConfigToJson());
-    f.close();
+    Preferences prefs;
+    prefs.begin(SENSOR_NVS_NAMESPACE, false);
+    prefs.putUChar("version",      sensorConfig.version);
+    prefs.putUChar("bme_sda",      sensorConfig.bme_sda);
+    prefs.putUChar("bme_scl",      sensorConfig.bme_scl);
+    prefs.putUChar("bme_addr",     sensorConfig.bme_addr);
+    prefs.putUInt("bme_interval",  sensorConfig.bme_interval_ms);
+    prefs.end();
     logPrintln("Config: gespeichert");
     return true;
 }
