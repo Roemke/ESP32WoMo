@@ -49,3 +49,6 @@
 
 #define BMV_MAC_DEFAULT     ""
 #define BMV_BINDKEY_DEFAULT ""
+//-- zur Helligkeit
+#define DISPLAY_BRIGHTNESS_DEFAULT 80 // prozentwert, eigentlich 0-1
+#define INDICATOR_OPACITY_DEFAULT  60  // prozentwert, eigentlich 0-255

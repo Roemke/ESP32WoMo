@@ -43,7 +43,7 @@ String buildDataJson()
 {
     JsonDocument doc;
     doc["bme"]     = serialized(bme280ToJson());    
-    doc["co2"]   = serialized(scd41ToJson());     // nur CO2 für Display
+    doc["co2"]   = serialized(scd41ToJson());     // co2.co2 und co2.valid :-)
     doc["scd41"]    = serialized(scd41ToJsonFull()); //alle für webinterface
     doc["vedirect"] = serialized(bmvToJson());      // BMV712 via BLE    
     doc["mppt1"]    = serialized(mppt1ToJson());     // MPPT1 via BLE

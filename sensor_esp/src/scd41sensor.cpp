@@ -53,9 +53,9 @@ void scd41Loop()
     if (millis() - lastMs < 5000) return;
     lastMs = millis();
 
-   uint16_t dataReadyRaw = 0;
+    uint16_t dataReadyRaw = 0;
     int16_t err = scd4x.getDataReadyStatusRaw(dataReadyRaw);
-    logPrintf("SCD41: err=%d raw=0x%04X ready=%d\n", err, dataReadyRaw, (dataReadyRaw & 0x07FF) != 0);
+    //logPrintf("SCD41: err=%d raw=0x%04X ready=%d\n", err, dataReadyRaw, (dataReadyRaw & 0x07FF) != 0);
     bool ready = (dataReadyRaw & 0x07FF) != 0;
     if (!ready) return;
     
@@ -71,7 +71,7 @@ void scd41Loop()
     s_data.temperature  = temp;
     s_data.humidity     = hum;
     s_data.lastUpdateMs = millis();
-    logPrintf("SCD41: CO2=%d ppm T=%.1f H=%.1f\n", co2, temp, hum);
+    //logPrintf("SCD41: CO2=%d ppm T=%.1f H=%.1f\n", co2, temp, hum);
 }
 bool scd41IsValid()
 {

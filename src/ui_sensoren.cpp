@@ -1,7 +1,9 @@
 #include "ui_sensoren.h"
 #include "sensorpoll.h"
+#include "appconfig.h"
 #include "SD.h"
 
+volatile bool g_indicatorOpacityChanged = false;
 // ----------------------------------------------------------------
 // Private UI-Handles – nur in dieser Datei sichtbar
 // ----------------------------------------------------------------
@@ -19,15 +21,55 @@ static lv_obj_t *s_co2     = nullptr;
 static lv_obj_t *s_ip      = nullptr;
 
 
-//hilfsfunktion zum laden von bildern in den psram, damit lvgl die bilder direkt von dort laden kann. spart ram und ist schneller als sd lesen.
-
-static uint8_t  *s_imgLeft      = nullptr;
-static uint8_t  *s_imgRight     = nullptr;
-static uint32_t  s_imgLeftSize  = 0;
-static uint32_t  s_imgRightSize = 0;
-
+//die beiden Bilder
 LV_IMAGE_DECLARE(earthSmall);
 LV_IMAGE_DECLARE(tardisSmall);
+
+// ----------------------------------------------------------------
+// Indikator-Handles (farbige Linien unter den Werten)
+// ----------------------------------------------------------------
+static lv_obj_t *s_temp_ind = nullptr;
+static lv_obj_t *s_hum_ind  = nullptr;
+static lv_obj_t *s_co2_ind  = nullptr;
+static lv_obj_t *s_soc_ind  = nullptr;
+static lv_obj_t *s_vs_ind = nullptr;
+ 
+// ----------------------------------------------------------------
+// Farben
+// ----------------------------------------------------------------
+#define COLOR_OK      lv_color_hex(0x44FF88)   // grün
+#define COLOR_WARN    lv_color_hex(0xFFAA00)   // orange
+#define COLOR_ERR     lv_color_hex(0xFF4444)   // rot
+#define COLOR_INACTIVE lv_color_hex(0x0A0A1A)  // bg – kein Sensor
+
+// Farben zurückgeben, abhängig von den Wertebereichen
+static lv_color_t tempColor(float t) {
+    if (t < 5 || t > 35) return COLOR_ERR;
+    if (t < 18 || t > 28) return COLOR_WARN;
+    return COLOR_OK;
+}
+static lv_color_t humColor(float h) {
+    if (h < 30 || h > 70) return COLOR_WARN;
+    return COLOR_OK;
+}
+static lv_color_t co2Color(int c) {
+    if (c > 2000) return COLOR_ERR;
+    if (c > 1000) return COLOR_WARN;
+    return COLOR_OK;
+}
+static lv_color_t socColor(float s) {
+    if (s < 20) return COLOR_ERR;
+    if (s < 50) return COLOR_WARN;
+    return COLOR_OK;
+}
+
+static lv_color_t vsColor(float v) {
+    if (v < 11.8f || v > 14.8f) return lv_color_hex(0xFF4444); // rot
+    if (v < 12.0f)               return lv_color_hex(0xFFAA00); // gelb
+    if (v < 12.4f)               return lv_color_hex(0xFFEEAA); // beige
+    if (v < 12.7f)               return lv_color_hex(0x00CCAA); // türkis
+    return                              lv_color_hex(0x00FF88); // hellgrün
+} 
 
 // ----------------------------------------------------------------
 // Hilfsfunktion: Panel erstellen
@@ -37,7 +79,7 @@ static lv_obj_t *makePanel(lv_obj_t *parent, int x, int y, int w, int h)
     lv_obj_t *p = lv_obj_create(parent);
     lv_obj_set_size(p, w, h);
     lv_obj_set_pos(p, x, y);
-    lv_obj_set_style_bg_color(p, lv_color_hex(0x0A0A1A), 0);
+    lv_obj_set_style_bg_color(p, COLOR_INACTIVE, 0); // dunkler Hintergrund wie inaktive Werte
     lv_obj_set_style_bg_opa(p, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(p, lv_color_hex(0x3A3A8E), 0);
     lv_obj_set_style_border_width(p, 1, 0);
@@ -79,6 +121,33 @@ static lv_obj_t *makeRow(lv_obj_t *parent, const char *key, int y)
     return v;
 }
 
+// ----------------------------------------------------------------
+// Hilfsfunktion: Indikatorlinie unter einem Wert
+// ----------------------------------------------------------------
+static lv_obj_t *makeIndicator(lv_obj_t *parent, int y)
+{
+    lv_obj_t *bar = lv_obj_create(parent);
+    lv_obj_set_size(bar, 100, 3);          // schmaler, nur unter dem Wert
+    lv_obj_set_style_radius(bar, 2, 0);
+    lv_obj_set_style_border_width(bar, 0, 0);
+    lv_obj_set_style_pad_all(bar, 0, 0);
+    lv_obj_set_style_bg_color(bar, COLOR_INACTIVE, 0);
+    //lv_obj_set_style_bg_opa(bar, appConfig.indicator_opacity, 0); gesammelt setzen
+    lv_obj_align(bar, LV_ALIGN_TOP_RIGHT, -12, y);  // rechtsbündig mit -12px Abstand
+    lv_obj_clear_flag(bar, LV_OBJ_FLAG_SCROLLABLE);
+    return bar;
+}
+//setze bei Änderung
+void uiSensorenSetIndicatorOpacity()
+{
+    uint8_t opa = appConfig.indicator_opacity *255/ 100; //von prozent umrechnen.
+    lv_obj_set_style_bg_opa(s_temp_ind, opa, 0);
+    lv_obj_set_style_bg_opa(s_hum_ind,  opa, 0);
+    lv_obj_set_style_bg_opa(s_co2_ind,  opa, 0);
+    lv_obj_set_style_bg_opa(s_soc_ind,  opa, 0);
+    lv_obj_set_style_bg_opa(s_vs_ind,   opa, 0);
+}
+
 // ================================================================
 // Setup
 // ================================================================
@@ -110,10 +179,16 @@ void uiSensorenSetup(lv_obj_t *tab)
     makeTitle(p_klima, "Klima");
 
     s_temp  = makeRow(p_klima, "Temperatur:", row_start);
-    s_hum   = makeRow(p_klima, "Feuchte:",    row_start + row_step);
-    s_press = makeRow(p_klima, "Luftdruck:",  row_start + row_step * 2);
-    s_co2   = makeRow(p_klima, "CO2:",        row_start + row_step * 3);
+    s_temp_ind = makeIndicator(p_klima, row_start + 22);
 
+    s_hum   = makeRow(p_klima, "Feuchte:",    row_start + row_step);
+    s_hum_ind  = makeIndicator(p_klima, row_start + row_step + 22);
+    
+    s_press = makeRow(p_klima, "Luftdruck:",  row_start + row_step * 2);
+    
+    s_co2   = makeRow(p_klima, "CO2:",        row_start + row_step * 3);
+    s_co2_ind  = makeIndicator(p_klima, row_start + row_step * 3 + 22); 
+    
     // IP-Adresse unten rechts
     s_ip = lv_label_create(p_klima);
     lv_label_set_text(s_ip, "---");
@@ -137,9 +212,12 @@ void uiSensorenSetup(lv_obj_t *tab)
     s_current = makeRow(p_bat, "Strom:",     row_start + row_step);
     s_power   = makeRow(p_bat, "Leistung:",  row_start + row_step * 2);
     s_soc     = makeRow(p_bat, "SoC:",       row_start + row_step * 3);
+    s_soc_ind  = makeIndicator(p_bat, row_start + row_step * 3 + 22);
     s_ttg     = makeRow(p_bat, "Restlauf:",  row_start + row_step * 4);
     s_vs      = makeRow(p_bat, "Starter:",   row_start + row_step * 5);
+    s_vs_ind  = makeIndicator(p_bat, row_start + row_step * 5 + 22);
 
+    uiSensorenSetIndicatorOpacity(); //einmal gesammelt setzen
 }
 
 // ================================================================
@@ -150,7 +228,7 @@ void uiSensorenUpdate(bool force) {
     if (!force && millis() - lastUpdate < 2000) return;
     lastUpdate = millis();
     char buf[32];
-
+    
     // ---- Batterie -----------------------------------------------
     if (sensorData.vedirect_valid)
     {
@@ -165,6 +243,7 @@ void uiSensorenUpdate(bool force) {
 
         snprintf(buf, sizeof(buf), "%.1f %%", sensorData.soc);
         lv_label_set_text(s_soc, buf);
+        lv_obj_set_style_bg_color(s_soc_ind, socColor(sensorData.soc), 0);
 
         if (sensorData.ttg < 0)
             lv_label_set_text(s_ttg, "---");
@@ -177,6 +256,7 @@ void uiSensorenUpdate(bool force) {
 
         snprintf(buf, sizeof(buf), "%.2f V", sensorData.voltage_starter);
         lv_label_set_text(s_vs, buf);
+        lv_obj_set_style_bg_color(s_vs_ind, vsColor(sensorData.voltage_starter), 0);
     }
     else
     {
@@ -184,8 +264,10 @@ void uiSensorenUpdate(bool force) {
         lv_label_set_text(s_current, "---");
         lv_label_set_text(s_power,   "---");
         lv_label_set_text(s_soc,     "---");
+        lv_obj_set_style_bg_color(s_soc_ind, COLOR_INACTIVE, 0);
         lv_label_set_text(s_ttg,     "---");
         lv_label_set_text(s_vs,      "---");
+        lv_obj_set_style_bg_color(s_vs_ind, COLOR_INACTIVE, 0);
     }
 
     // ---- Klima --------------------------------------------------
@@ -193,9 +275,11 @@ void uiSensorenUpdate(bool force) {
     {
         snprintf(buf, sizeof(buf), "%.1f C", sensorData.temperature);
         lv_label_set_text(s_temp, buf);
+        lv_obj_set_style_bg_color(s_temp_ind, tempColor(sensorData.temperature), 0);
 
         snprintf(buf, sizeof(buf), "%.1f %%", sensorData.humidity);
         lv_label_set_text(s_hum, buf);
+        lv_obj_set_style_bg_color(s_hum_ind, humColor(sensorData.humidity), 0);
 
         snprintf(buf, sizeof(buf), "%.1f hPa", sensorData.pressure);
         lv_label_set_text(s_press, buf);
@@ -205,6 +289,8 @@ void uiSensorenUpdate(bool force) {
         lv_label_set_text(s_temp,  "---");
         lv_label_set_text(s_hum,   "---");
         lv_label_set_text(s_press, "---");
+        lv_obj_set_style_bg_color(s_temp_ind, COLOR_INACTIVE, 0);
+        lv_obj_set_style_bg_color(s_hum_ind, COLOR_INACTIVE, 0);    
     }
 
     // ---- CO2 ----------------------------------------------------
@@ -212,10 +298,13 @@ void uiSensorenUpdate(bool force) {
     {
         snprintf(buf, sizeof(buf), "%d ppm", sensorData.co2_ppm);
         lv_label_set_text(s_co2, buf);
+        lv_obj_set_style_bg_color(s_co2_ind, co2Color(sensorData.co2_ppm), 0);
     }
     else
+    {
         lv_label_set_text(s_co2, "---");
-
+        lv_obj_set_style_bg_color(s_co2_ind, COLOR_INACTIVE, 0);
+    }       
 }
 
 // ----------------------------------------------------------------

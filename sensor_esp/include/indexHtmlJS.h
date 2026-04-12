@@ -113,10 +113,9 @@ const char index_html[] PROGMEM = R"rawliteral(
 let logFrom = 0;
 async function poll() {
   try {
-    const r = await fetch('/api/data?logFrom=' + logFrom);
+    const r = await fetch('/api/data');
     const d = await r.json();
     console.log(JSON.stringify(d.bme));
-    console.log("LogFrom is " + logFrom);
     setText('statusIP',     d.wifi || '-');
     setText('statusUpdate', new Date().toLocaleTimeString());
 
@@ -312,7 +311,12 @@ function socClass(s) {
   if (s < 50) return 'warn';
   return 'ok';
 }
-
+function co2Class(c) {
+  if (c > 2000) return 'err';
+  if (c > 1000) return 'warn';
+  //if (c > 600 ) return 'ok'; //ab 600 ok, 400 sind frischluft, aber in Wohnräumen selten erreichbar
+  return 'ok';
+}
 function toggleIP(cb) {
   document.getElementById('ip-fields').style.display = cb.checked ? 'block' : 'none';
 }
@@ -420,7 +424,8 @@ window.addEventListener('load', () => {
     <div class="form-row"><label>BME280 SCL (GPIO)</label>  <input type="number" id="cfg-bme-scl"      value="%BME_SCL%"></div>
     <div class="form-row"><label>BME280 Adresse</label>     <input type="number" id="cfg-bme-addr"     value="%BME_ADDR%"></div>
     <div class="form-row"><label>Messintervall (ms)</label> <input type="number" id="cfg-bme-interval" value="%BME_INTERVAL%"></div>
-    <div class="form-row">(Intervall SCD fest auf 5-10s, mehr nicht sinnvoll, victronble sendet wann er Lust hat)</div> 
+    <div class="form-row">Intervall SCD41 fest auf 5s, mehr nicht sinnvoll, victronble sendet wann er Lust hat.</div> 
+    <div class="form-row">SCD41 ist parallel zum BME280 angeschlossen, daher gleiche GPIO-Pins.</div>
     <button class="btn" onclick="saveConfig()">Speichern &amp; Neustart</button>
     <div class="infoField invisible" id="cfgInfo">
       <strong>Konfiguration gespeichert.</strong> Der ESP startet neu.

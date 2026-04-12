@@ -64,6 +64,9 @@ const char index_html[] PROGMEM = R"rawliteral(
   .badge.ok      { background: #2e7d32; color: #fff; }
   .badge.warn    { background: #f9a825; color: #000; }
   .badge.err     { background: #c62828; color: #fff; }
+  .badge.vs-beige   { background: #FFEEAA; color: #000; }
+  .badge.vs-teal    { background: #00CCAA; color: #000; }
+  .badge.vs-green   { background: #00FF88; color: #000; }
   .badge.neutral { background: #444466; color: #fff; }
 
   /* ---- Formular ---- */
@@ -155,14 +158,32 @@ function tempClass(t) { if (t < 5 || t > 35) return 'err'; if (t < 18 || t > 28)
 function humClass(h)  { return (h < 30 || h > 70) ? 'warn' : 'ok'; }
 function socClass(s)  { if (s < 20) return 'err'; if (s < 50) return 'warn'; return 'ok'; }
 function co2Class(p)  { if (p > 2000) return 'err'; if (p > 1000) return 'warn'; return 'ok'; }
-
+function vsClass(v) {
+    if (v < 11.8 || v > 14.8) return 'err';
+    if (v < 12.0)              return 'warn';
+    if (v < 12.4)              return 'vs-beige';
+    if (v < 12.7)              return 'vs-teal';
+    return 'vs-green';
+}
 function toggleIP(cb) {
   document.getElementById('ip-fields').style.display = cb.checked ? 'block' : 'none';
 }
 
 function openTab(evt, name) {
+  //alle abschalten
   document.querySelectorAll('.tabcontent').forEach(t => t.style.display = 'none');
   document.querySelectorAll('.tab button').forEach(b => b.classList.remove('active'));
+
+  //beleuchtung erst laden, wenn Tab geöffnet wird (wegen iframes)
+  if (name === 'beleuchtung') {
+    ['iframe-innen', 'iframe-aussen'].forEach(id => {
+        const f = document.getElementById(id);
+        if (f && f.src === 'about:blank') {
+            f.src = f.dataset.src;
+        }
+    });
+  }
+  //richtigen einschalten
   document.getElementById(name).style.display = 'block';
   evt.currentTarget.classList.add('active');
 }
@@ -285,16 +306,16 @@ async function poll() {
       setBadge('valPress', d.bme.P + ' hPa', 'neutral');
     }
     if (d.co2 && d.co2.valid)
-      setBadge('valCO2', d.co2.ppm + ' ppm', co2Class(d.co2.ppm));
-
+      setBadge('valCO2', d.co2.co2 + ' ppm', co2Class(d.co2.co2));
+      //zweimal co2, da co2.co2 und co2.valid in co2-objekt sind
     // Batterie
     if (d.vedirect && d.vedirect.valid) {
       setBadge('valV',   d.vedirect.V   + ' V',  'neutral');
       setBadge('valI',   d.vedirect.I   + ' A',  'neutral');
       setBadge('valP',   d.vedirect.P   + ' W',  'neutral');
       setBadge('valSOC', d.vedirect.SOC + ' %%',  socClass(d.vedirect.SOC));
-      setBadge('valTTG', ttgFormat(d.vedirect.TTG), 'neutral');
-      setBadge('valVS',  d.vedirect.VS  + ' V',  'neutral');
+      setBadge('valTTG', ttgFormat(d.vedirect.TTG), 'neutral');      
+      setBadge('valVS',  d.vedirect.VS  + ' V',  vsClass(d.vedirect.VS));
     }
     // MPPT1
     if (d.mppt1 && d.mppt1.valid) {
@@ -517,6 +538,26 @@ async function saveWifi() {
     });
     document.getElementById('wifiInfo').classList.remove('invisible');
   } catch(e) {}
+}
+
+//display helligkeit und indicator opacity speichern
+let displayTimer = null;
+async function setDisplay() {
+    // Debounce 500ms damit nicht bei jedem Tastendruck ein Request geht
+    clearTimeout(displayTimer);
+    displayTimer = setTimeout(async () => {
+        const body = {
+            display_brightness: parseInt(getVal('cfgDisplayBrightness')),
+            indicator_opacity:  parseInt(getVal('cfgIndicatorOpacity'))
+        };
+        try {
+            await fetch('/api/config/display', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+        } catch(e) {}
+    }, 500);
 }
 
 // ================================================================
@@ -774,17 +815,21 @@ window.addEventListener('load', () => {
     <div style="display:flex; gap:10px; flex-wrap:wrap;">
       <div style="flex:1; padding-left:2%%; min-width:300px;height:650px; border:1px solid #3a3a8e; border-radius:8px;">
         <h4>WLED Innen</h4> 
-        <iframe src="http://%WLED_INNEN_IP%" 
-            style="min-width:300px; width:90%%; height:90%%; ">        
-      </iframe>
-      </div>
-      <div style="flex:1; padding-left:2%%; min-width:300px;height:650px; border:1px solid #3a3a8e; border-radius:8px;">
-      <h4>WLED Außen</h4>
-        <iframe src="http://%WLED_AUSSEN_IP%" 
-            style="min-width:300px; width:90%%; height:90%%; ">
+        <iframe id="iframe-innen"
+            data-src="http://%WLED_INNEN_IP%" 
+            src="about:blank"
+            style="min-width:300px; width:90%%; height:90%%;">        
         </iframe>
       </div>
-  </div>
+      <div style="flex:1; padding-left:2%%; min-width:300px;height:650px; border:1px solid #3a3a8e; border-radius:8px;">
+        <h4>WLED Außen</h4>
+        <iframe id="iframe-aussen"
+            data-src="http://%WLED_AUSSEN_IP%"
+            src="about:blank"
+            style="min-width:300px; width:90%%; height:90%%;">
+        </iframe>
+      </div>
+    </div>
 </div>
 
 <!-- ============================================================ -->
@@ -831,7 +876,18 @@ window.addEventListener('load', () => {
   <div class="infoField invisible" id="wifiInfo">
     <strong>Daten gespeichert.</strong> Der ESP startet neu.
   </div>
-
+  <h2>Display</h2>
+  <div class="form-row">
+    <label>Display-Helligkeit (0-100)</label>
+    <input type="number" id="cfgDisplayBrightness" value="%DISPLAY_BRIGHTNESS%" 
+            min="0" max="100" step="1" oninput="setDisplay()">
+  </div>
+  <div class="form-row">
+    <label>Indikator-Deckkraft (0-100)</label>
+    <input type="number" id="cfgIndicatorOpacity" value="%INDICATOR_OPACITY%" 
+      min="0" max="100" step="1" oninput="setDisplay()">
+  </div>
+  <div class="form-row">(Die Änderungen werden sofort übernommen, kein Neustart nötig.)</div>
   <h2>System</h2>
   <button class="btn" onclick="fetch('/api/reboot',{method:'POST'})">ESP Neustart</button>
   <a href="/update"><button class="btn">OTA Update</button></a>
@@ -855,7 +911,7 @@ window.addEventListener('load', () => {
   <h2>SD-Karte</h2>
   <div class="form-row">
     <label>Verzeichnis</label>
-    <input type="text" id="sdDir" value="/2025" style="width:120px">
+    <input type="text" id="sdDir" value="/" style="width:120px">
     <button class="btn" onclick="listSD()">Auflisten</button>
   </div>
   <div id="sdFiles" style="margin-top:8px;font-size:0.85em;line-height:1.8"></div>
@@ -863,7 +919,7 @@ window.addEventListener('load', () => {
   <h2>Datei hochladen</h2>
   <div class="form-row">
     <label>Zielverzeichnis</label>
-    <input type="text" id="sdUploadDir" value="/2025" style="width:120px">
+    <input type="text" id="sdUploadDir" value="/" style="width:120px">
   </div>
   <input type="file" id="sdUploadFile" accept=".csv">
   <button class="btn" onclick="uploadSD()">Hochladen</button>

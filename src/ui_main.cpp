@@ -5,8 +5,18 @@
 //#include "ui_history.h"
 #include "wifi.h"
 #include "ui_wled.h"
+#include "appconfig.h"
+
+
 //user interface
 static lv_obj_t *ui_tabview = nullptr;
+static lv_obj_t *s_slider = nullptr;
+
+void uiSetDisplayBrightness() {
+    smartdisplay_lcd_set_backlight(appConfig.display_brightness / 100.0f);
+    if (s_slider)
+        lv_slider_set_value(s_slider, appConfig.display_brightness, LV_ANIM_ON);
+}
 
 void uiMainSetup()
 {
@@ -84,7 +94,7 @@ void uiMainSetup()
     // Datum + Zeit (links)
     static lv_obj_t *s_datetime = lv_label_create(bar);
     lv_label_set_text(s_datetime, "--.--.---- --:--:--");
-    lv_obj_set_style_text_color(s_datetime, lv_color_hex(0x8888BB), 0);
+    lv_obj_set_style_text_color(s_datetime, lv_color_hex(0xEEEEFF), 0);
     lv_obj_set_style_text_font(s_datetime, &lv_font_montserrat_18, 0);
     lv_obj_align(s_datetime, LV_ALIGN_LEFT_MID, 8, 0);
 
@@ -100,20 +110,26 @@ void uiMainSetup()
     lv_obj_add_event_cb(btn, [](lv_event_t *e) {
         static bool on = true;
         on = !on;
-        smartdisplay_lcd_set_backlight(on ? 1.0f : 0.0f);
+        smartdisplay_lcd_set_backlight(on ? appConfig.display_brightness / 100.0f : 0.0f);
     }, LV_EVENT_CLICKED, nullptr);
 
     // Helligkeits-Slider (rechts)
-    lv_obj_t *slider = lv_slider_create(bar);
-    lv_obj_set_size(slider, 280, 10);
-    lv_obj_align(slider, LV_ALIGN_RIGHT_MID, -8, 0);
-    lv_slider_set_range(slider, 0, 100);
-    lv_slider_set_value(slider, 100, LV_ANIM_OFF);
-    lv_obj_add_event_cb(slider, [](lv_event_t *e) {
+    s_slider = lv_slider_create(bar);    
+    lv_obj_set_size(s_slider, 280, 10);
+    lv_obj_align(s_slider, LV_ALIGN_RIGHT_MID, -8, 0);
+    lv_slider_set_range(s_slider, 0, 100);
+    uiSetDisplayBrightness();
+    lv_obj_add_event_cb(s_slider, [](lv_event_t *e) {
         lv_obj_t *s = (lv_obj_t *)lv_event_get_target(e);
         int val = lv_slider_get_value(s);
+        appConfig.display_brightness = val;
         smartdisplay_lcd_set_backlight(val / 100.0f);
     }, LV_EVENT_VALUE_CHANGED, nullptr);
+
+    //speichern nur beim release
+    lv_obj_add_event_cb(s_slider, [](lv_event_t *e) {
+        appConfigSave();    
+    }, LV_EVENT_RELEASED, nullptr);
 
     // Timer: Uhrzeit jede Sekunde aktualisieren
     lv_timer_create([](lv_timer_t *t) {

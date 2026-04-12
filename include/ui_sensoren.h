@@ -16,3 +16,6 @@ void uiSensorenUpdate(bool force = false);
 
 // IP-Adresse im Klima-Panel setzen
 void uiSensorenSetIP(const String &ip);
+//update opacity der indikatorbalken
+
+void uiSensorenSetIndicatorOpacity();

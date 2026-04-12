@@ -44,6 +44,8 @@ String processor(const String& var)
     if (var == "WLED_INNEN_IP")   return String(appConfig.wled_innen_ip);
     if (var == "WLED_AUSSEN_IP")  return String(appConfig.wled_aussen_ip);
     if (var == "SENSOR_POLL_INTERVAL") return String(appConfig.sensor_poll_interval_ms);
+    if (var == "DISPLAY_BRIGHTNESS") return String(appConfig.display_brightness);
+    if (var == "INDICATOR_OPACITY") return String(appConfig.indicator_opacity);
     return "";
 }
 
@@ -115,7 +117,7 @@ String buildDataJson()
     JsonObject co2 = doc["co2"].to<JsonObject>();
     co2["valid"] = sensorData.co2_valid;
     if (sensorData.co2_valid)
-        co2["ppm"] = sensorData.co2_ppm;
+        co2["co2"] = sensorData.co2_ppm;
 
     doc["wifi"] = wifiGetIP();
 
@@ -328,14 +330,55 @@ static void handleLog(AsyncWebServerRequest *req)
     req->send(200, "application/json", out);
 }
 
+static void handleDisplayPost(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t, size_t)
+{
+    JsonDocument doc;
+    deserializeJson(doc, data, len);
+    appConfig.display_brightness = doc["display_brightness"] | appConfig.display_brightness;
+    appConfig.indicator_opacity  = doc["indicator_opacity"]  | appConfig.indicator_opacity;
+    uiSetDisplayBrightness();
+    uiSensorenSetIndicatorOpacity();
+    appConfigSave(); //kram mit threads heraus genommen, es bringt nichts. 
+    //scheint ein problem mit dem Display und LittleFS zu geben. 
+    request->send(200, "application/json", "{\"ok\":true}");
+}
+
+
 
 //alle routen für den server, aus setup rufen 
 void addRoutes()
 {
+    /*oftmals handle... eingebaut  
+    Signatur: server.on(path, method, onRequest, onUpload, onBody);
+    Methode - verschiedenes, bei get nur onRequest, bei Post alles 
+     onRequest: wenn eine anfrage kommt ohne body [](AsyncWebServerRequest *req) {}
+     onUpload: für Dateiuploads bei post
+     onBody: wenn body mitkommt, z.b. json post    
+
+     [](AsyncWebServerRequest *req) {} ist eine anonyme Funktion / Lambda, die direkt in der Definition übergeben wird.
+     [](AsyncWebServerRequest *req) void -> {}  wäre mit rückgabetyp
+     bei onRequest geht der Nullpointer nicht, da muss immer eine Funktion übergeben werden, auch wenn sie nichts macht. onUpload und onBody können je nach Bedarf null sein.
+     Die [] sind der Capture-Block des Lambda:
+     [capture] (parameter) { body } parameter: also  AsyncWebServerRequest *req wird übergeben #
+                                    capture: was kommt aus dem umgebenden Scope dazu. 
+                                    [] : nichts
+                                     [&] : alle Variablen werden per Referenz erfasst
+                                     [=] : alle Variablen werden per Wert erfasst/kopiert
+                                     [&var] : nur var per Referenz erfassen    
+     daher: sinnvoll oft server.on("pfad", Methode, 
+                [](AsyncWebServerRequest *req) {          }, nullptr,  
+                handleBlabla); handleBlabla braucht dann die 
+                Signatur void handleBlabla(AsyncWebServerRequest *req, uint8_t *data, size_t len, size_t index, size_t total)  
+                und wird aufgerufen wenn eine Anfrage mit Body kommt, z.b. ein JSON Post. 
+                data und len enthalten dann den Body der Anfrage.       
+                wenn er in mehreren Chunks kommt, wird handleBlabla mehrfach mit den entsprechenden 
+                Daten aufgerufen, bis index+len == total ist, man muss selber zusammen bauen, 
+                hier aber nicht nötig. (kleine Änderungen)
+     */
     server.on("/api/stats", HTTP_GET, [](AsyncWebServerRequest *req)
         {    handleStats(req);  });
 
-    //history darstellen     
+    //history darstellen, nicht ganz konsequent :-)     
     server.on("/api/history", HTTP_GET, [](AsyncWebServerRequest *req)
     {
         String from   = req->hasParam("from")   ? req->getParam("from")->value()   : "";
@@ -398,6 +441,9 @@ void addRoutes()
 
 
     // spezifischere Route zuerst
+    server.on("/api/config/display", HTTP_POST, 
+        [](AsyncWebServerRequest *request){}, nullptr, handleDisplayPost);    
+
     server.on("/api/config/wifi", HTTP_POST,
         [](AsyncWebServerRequest *req) {}, nullptr, handleWifiPost);
 
@@ -504,7 +550,7 @@ void loop() {
     lv_last_tick = now;
     lv_timer_handler();
     
-   
+
     sensorPollLoop();
     sdLoop();
 
@@ -519,4 +565,5 @@ void loop() {
         uiDetailsUpdate();
     }
     uiWledUpdate();
+    static bool test = true;   
 }

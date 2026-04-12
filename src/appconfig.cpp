@@ -1,6 +1,20 @@
 #include "appconfig.h"
 
+
+//extern esp_lcd_panel_handle_t lcd_handle; // aus smartdisplay
+//flackern verhindern, ging nicht
+/*
+    flackern anscheinend durch littlefs und display.
+    Lösung: verwende preferences, die sind schneller und verursachen kein flackern.
+    ich hatte preferences tatsächlich vergessen :-(
+*/
+
+#define USE_LITTLEFS_FOR_CONFIG 0
+#if USE_LITTLEFS_FOR_CONFIG
 AppConfig appConfig;
+
+volatile bool g_configSaveNeeded = false;
+static volatile bool saveInProgress = false; //flag, um zu verhindern, dass mehrere saves gleichzeitig laufen, was zu Problemen führen könnte
 
 void appConfigLoad()
 {
@@ -23,12 +37,17 @@ void appConfigLoad()
     strlcpy(appConfig.wled_innen_ip,  doc["wled_innen_ip"]  | WLED_DEFAULT_INNEN_IP,  sizeof(appConfig.wled_innen_ip));
     strlcpy(appConfig.wled_aussen_ip, doc["wled_aussen_ip"] | WLED_DEFAULT_AUSSEN_IP, sizeof(appConfig.wled_aussen_ip));
     appConfig.sensor_poll_interval_ms = doc["sensor_poll_interval_ms"] | SENSOR_POLL_INTERVAL_MS;
-
+    appConfig.display_brightness = doc["display_brightness"] | DISPLAY_BRIGHTNESS_DEFAULT;
+    appConfig.indicator_opacity = doc["indicator_opacity"] | INDICATOR_OPACITY_DEFAULT;
 
 }
 
 void appConfigSave()
 {
+    if (saveInProgress) return; //wenn schon ein save läuft, nicht nochmal starten
+    saveInProgress = true;
+    //esp_lcd_rgb_panel_set_pclk(lcd_handle, 6000000); // 6 MHz, herunter setzen um flackern 
+                                                     //des displays zu vermeiden ging nicht
     File f = LittleFS.open(APP_CONFIG_PATH, "w");
     if (!f) return;
     JsonDocument doc;
@@ -36,11 +55,17 @@ void appConfigSave()
     doc["wled_innen_ip"]  = appConfig.wled_innen_ip;
     doc["wled_aussen_ip"] = appConfig.wled_aussen_ip;
     doc["sensor_poll_interval_ms"] = appConfig.sensor_poll_interval_ms;
+    doc["display_brightness"] = appConfig.display_brightness;
+    doc["indicator_opacity"] = appConfig.indicator_opacity;
 
 
     serializeJson(doc, f);
     f.close();
+    // PCLK wieder erhöhen
+    //esp_lcd_rgb_panel_set_pclk(lcd_handle, 12500000); // zurück auf 12.5 MHz
+    saveInProgress = false;
 }
+
 
 String appConfigToJson()
 {
@@ -49,8 +74,66 @@ String appConfigToJson()
     doc["wled_innen_ip"]  = appConfig.wled_innen_ip;
     doc["wled_aussen_ip"] = appConfig.wled_aussen_ip;
     doc["sensor_poll_interval_ms"] = appConfig.sensor_poll_interval_ms;
+    doc["display_brightness"] = appConfig.display_brightness;
+    doc["indicator_opacity"] = appConfig.indicator_opacity;
 
 
+    String out;
+    serializeJson(doc, out);
+    return out;
+}
+#endif
+
+#include <Preferences.h>
+
+AppConfig appConfig;
+volatile bool g_configSaveNeeded = false;
+
+static Preferences prefs;
+static const char* NVS_NAMESPACE = "appconfig";
+
+void appConfigLoad()
+{
+    prefs.begin(NVS_NAMESPACE, true); // read-only
+    strlcpy(appConfig.sensor_esp_ip,
+            prefs.getString("sensor_ip",   SENSOR_ESP_IP_DEFAULT).c_str(),
+            sizeof(appConfig.sensor_esp_ip));
+    strlcpy(appConfig.wled_innen_ip,
+            prefs.getString("wled_innen",  WLED_DEFAULT_INNEN_IP).c_str(),
+            sizeof(appConfig.wled_innen_ip));
+    strlcpy(appConfig.wled_aussen_ip,
+            prefs.getString("wled_aussen", WLED_DEFAULT_AUSSEN_IP).c_str(),
+            sizeof(appConfig.wled_aussen_ip));
+    appConfig.sensor_poll_interval_ms =
+            prefs.getUInt("poll_ms",     SENSOR_POLL_INTERVAL_MS);
+    appConfig.display_brightness =
+            prefs.getUChar("brightness", DISPLAY_BRIGHTNESS_DEFAULT);
+    appConfig.indicator_opacity =
+            prefs.getUChar("opacity",    INDICATOR_OPACITY_DEFAULT);
+    prefs.end();
+}
+
+void appConfigSave()
+{
+    prefs.begin(NVS_NAMESPACE, false); // read-write
+    prefs.putString("sensor_ip",   appConfig.sensor_esp_ip);
+    prefs.putString("wled_innen",  appConfig.wled_innen_ip);
+    prefs.putString("wled_aussen", appConfig.wled_aussen_ip);
+    prefs.putUInt("poll_ms",       appConfig.sensor_poll_interval_ms);
+    prefs.putUChar("brightness",   appConfig.display_brightness);
+    prefs.putUChar("opacity",      appConfig.indicator_opacity);
+    prefs.end();
+}
+
+String appConfigToJson()
+{
+    JsonDocument doc;
+    doc["sensor_esp_ip"]           = appConfig.sensor_esp_ip;
+    doc["wled_innen_ip"]           = appConfig.wled_innen_ip;
+    doc["wled_aussen_ip"]          = appConfig.wled_aussen_ip;
+    doc["sensor_poll_interval_ms"] = appConfig.sensor_poll_interval_ms;
+    doc["display_brightness"]      = appConfig.display_brightness;
+    doc["indicator_opacity"]       = appConfig.indicator_opacity;
     String out;
     serializeJson(doc, out);
     return out;

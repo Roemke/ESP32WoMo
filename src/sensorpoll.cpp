@@ -323,8 +323,8 @@ void sensorPollLoop()
     // CO2
     sensorData.co2_valid = doc["co2"]["valid"] | false;
     if (sensorData.co2_valid)
-        sensorData.co2_ppm = doc["co2"]["ppm"] | 0;
-    
+        sensorData.co2_ppm = doc["co2"]["co2"] | 0;
+    //co2.co2, da co2.co2 und co2.valid in co2-objekt sind
     sensorDataUpdated = true; //neue daten da, kann ui aktualisieren
     
     //static uint32_t lastRingMs = 0;
