@@ -1,10 +1,7 @@
 #pragma once
 #include <Arduino.h>
-#include <LittleFS.h>
 #include <ArduinoJson.h>
 #include "config.h"
-
-#define APP_CONFIG_PATH "/appconfig.json"
 
 struct AppConfig
 {
@@ -20,6 +17,5 @@ extern AppConfig appConfig;
 
 void appConfigLoad();
 void appConfigSave();
-
 
 String appConfigToJson();

@@ -565,5 +565,13 @@ void loop() {
         uiDetailsUpdate();
     }
     uiWledUpdate();
+    /* teste prefs vs littlefs. prefs braucht 1ms bei meiner config
     static bool test = true;   
+    if (test)
+    {
+        test = false;
+        uint32_t t = millis();
+        appConfigSave();
+        ESP_LOGI("CFG", "Save dauerte mit prefs %lu ms, bei LittleFS waren es 17 ms", millis() - t, 0); 
+    }*/
 }

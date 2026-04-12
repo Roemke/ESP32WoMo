@@ -124,7 +124,7 @@ At the default 2000ms poll interval and 75600 entries (fixed), this gives approx
 
 ## Configuration
 
-Most settings are configurable and persistent via LittleFS:
+Most settings are configurable and persistent via Preferences / NVS:
 
 | Setting | Default | Description |
 |---|---|---|

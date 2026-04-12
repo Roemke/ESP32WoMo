@@ -1,11 +1,80 @@
+#define WIFI_IN_NVS 1
+#if WIFI_IN_NVS
+    #include <Preferences.h>
+#else
+    #include <LittleFS.h>
+#endif
 #include "wifi.h"
-
-#define WIFI_DATA_PATH "/wifiData.json"
 
 WifiData wifiData;
 String   wifiMode;
 String   wifiMacAp;
 String   wifiMacSta;
+
+#if WIFI_IN_NVS
+    static const char* WIFI_NVS_NAMESPACE = "wificonfig";
+// ----------------------------------------------------------------
+// Credentials in NVS speichern
+// ----------------------------------------------------------------
+void wifiSaveData()
+{
+    Preferences prefs;
+    prefs.begin(WIFI_NVS_NAMESPACE, false);
+    prefs.putString("ssid",       wifiData.ssid);
+    prefs.putString("password",   wifiData.password);
+    prefs.putBool("use_static",   wifiData.use_static_ip);
+    prefs.putString("static_ip",  wifiData.static_ip);
+    prefs.putString("subnet",     wifiData.subnet);
+    prefs.putString("gateway",    wifiData.gateway);
+    prefs.putString("dns",        wifiData.dns);
+    prefs.putUInt("magic",        wifiData.magic);
+    prefs.end();
+    logPrintln("WiFi: Credentials gespeichert");
+}
+
+// ----------------------------------------------------------------
+// Credentials aus NVS laden
+// ----------------------------------------------------------------
+static bool loadWifiData()
+{
+    Preferences prefs;
+    prefs.begin(WIFI_NVS_NAMESPACE, true);
+
+    if (!prefs.isKey("magic")) {
+        prefs.end();
+        logPrintln("WiFi: Keine gespeicherten Credentials");
+        return false;
+    }
+
+    uint32_t magic = prefs.getUInt("magic", 0);
+    if (magic != 0x43) {
+        prefs.end();
+        logPrintln("WiFi: Credentials ungültig");
+        return false;
+    }
+
+    prefs.getString("ssid",      wifiData.ssid,      sizeof(wifiData.ssid));
+    prefs.getString("password",  wifiData.password,  sizeof(wifiData.password));
+    wifiData.use_static_ip = prefs.getBool("use_static", false);
+    prefs.getString("static_ip", wifiData.static_ip, sizeof(wifiData.static_ip));
+    prefs.getString("subnet",    wifiData.subnet,     sizeof(wifiData.subnet));
+    prefs.getString("gateway",   wifiData.gateway,    sizeof(wifiData.gateway));
+    prefs.getString("dns",       wifiData.dns,        sizeof(wifiData.dns));
+    wifiData.magic = magic;
+    prefs.end();
+
+    // Defaults wenn leer
+    if (strlen(wifiData.static_ip) == 0) strncpy(wifiData.static_ip, WIFI_STATIC_IP_DEFAULT, sizeof(wifiData.static_ip) - 1);
+    if (strlen(wifiData.subnet)    == 0) strncpy(wifiData.subnet,    WIFI_SUBNET_DEFAULT,    sizeof(wifiData.subnet)    - 1);
+    if (strlen(wifiData.gateway)   == 0) strncpy(wifiData.gateway,   WIFI_GATEWAY_DEFAULT,   sizeof(wifiData.gateway)   - 1);
+    if (strlen(wifiData.dns)       == 0) strncpy(wifiData.dns,       WIFI_DNS_DEFAULT,       sizeof(wifiData.dns)       - 1);
+
+    logPrintf("WiFi: Credentials geladen, SSID=%s\n", wifiData.ssid);
+    return true;
+}
+
+#else
+#define WIFI_DATA_PATH "/wifiData.json"
 
 // ----------------------------------------------------------------
 // Credentials in LittleFS speichern
@@ -74,7 +143,7 @@ static bool loadWifiData()
     logPrintf("WiFi: Credentials geladen, SSID=%s\n", wifiData.ssid);
     return true;
 }
-
+#endif
 // ----------------------------------------------------------------
 // Credentials setzen und speichern (von außen aufrufbar, z.B. REST)
 // ----------------------------------------------------------------
