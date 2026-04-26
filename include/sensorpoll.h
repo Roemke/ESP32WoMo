@@ -40,6 +40,10 @@ struct SensorData
     float   charger_current;
     uint8_t charger_state;
     char    charger_stateStr[24];
+    // Gas Füllstand
+    bool    gas_valid;
+    int     gas_percent;
+
 };
 
 struct RingStats {
@@ -63,12 +67,22 @@ struct RingStats {
     // Charger
     float charger_v_min, charger_v_max, charger_v_avg;
     float charger_i_min, charger_i_max, charger_i_avg;
+    // Gas
+    int   gas_min, gas_max, gas_avg;
+
     uint32_t hours;
     bool valid; //überhaupt daten
     uint8_t valid_sensors;  //flags für die sensorarten, damit ui weiß, was es anzeigen kann
 };
-
-#define RING_MAX_ENTRIES    75600  // 42h × 1800 Einträge/h, alle 2 sek
+#ifdef BOARD_HAS_PSRAM
+  #if CONFIG_IDF_TARGET_ESP32S2
+    #define RING_MAX_ENTRIES  25000  // ~14h bei 2s Intervall, passt in 2MB
+  #else
+    #define RING_MAX_ENTRIES  75600  // S3 mit 8MB PSRAM
+  #endif
+#else
+  #define RING_MAX_ENTRIES  500     // kein PSRAM
+#endif
 
 struct RingEntry {
     float T, H, P;
@@ -78,8 +92,10 @@ struct RingEntry {
     float    mppt1_V, mppt1_I, mppt1_PV;
     float    mppt2_V, mppt2_I, mppt2_PV;
     uint16_t mppt1_yield, mppt2_yield;
-    float    charger_V, charger_I;
+    float    charger_V, charger_I;    
+    int      gas_percent; //Gas Füllstand in Prozent
     uint8_t valid_flags; //flags
+
 };
 
 #define VALID_BME     (1<<0) 
@@ -92,6 +108,7 @@ struct RingEntry {
 #define VALID_MPPT2   (1<<3)
 #define VALID_CHARGER (1<<4)
 #define VALID_CO2     (1<<5)
+#define VALID_GAS     (1<<6)
 
 extern bool sensorDataUpdated; //bei update ui aktualisieren
 extern RingEntry *ringBuffer;

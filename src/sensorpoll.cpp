@@ -23,7 +23,7 @@ void calcRingStats(uint32_t hours)
     uint32_t maxEntries = (hours * 3600 * 1000) / appConfig.sensor_poll_interval_ms;
     uint32_t entries    = min(ringCount, maxEntries);
 
-    uint32_t bme_cnt = 0, ve_cnt = 0, mppt1_cnt = 0, mppt2_cnt = 0, charger_cnt = 0,scd_cnt=0;
+    uint32_t bme_cnt = 0, ve_cnt = 0, mppt1_cnt = 0, mppt2_cnt = 0, charger_cnt = 0, scd_cnt = 0, gas_cnt = 0;
 
     // Startwerte
     uint32_t first = (ringHead + RING_MAX_ENTRIES - 1) % RING_MAX_ENTRIES; //letzter gesetzter eintrag
@@ -47,6 +47,7 @@ void calcRingStats(uint32_t hours)
     ringStats.mppt2_pv_min = ringStats.mppt2_pv_max = f.mppt2_PV;
     ringStats.charger_v_min = ringStats.charger_v_max = f.charger_V;
     ringStats.charger_i_min = ringStats.charger_i_max = f.charger_I;
+    ringStats.gas_min = ringStats.gas_max = f.gas_percent;
 
     // Avgs zurücksetzen
     ringStats.t_avg = ringStats.h_avg = ringStats.p_avg = ringStats.co2_avg = 0;
@@ -54,6 +55,7 @@ void calcRingStats(uint32_t hours)
     ringStats.mppt1_v_avg = ringStats.mppt1_i_avg = ringStats.mppt1_pv_avg = 0;
     ringStats.mppt2_v_avg = ringStats.mppt2_i_avg = ringStats.mppt2_pv_avg = 0;
     ringStats.charger_v_avg = ringStats.charger_i_avg = 0;
+    ringStats.gas_avg = 0;
 
     // Startwerte werden beim ersten gültigen Eintrag gesetzt
     bool initialized = false;
@@ -81,6 +83,7 @@ void calcRingStats(uint32_t hours)
             ringStats.mppt2_pv_min = ringStats.mppt2_pv_max = e.mppt2_PV;
             ringStats.charger_v_min = ringStats.charger_v_max = e.charger_V;
             ringStats.charger_i_min = ringStats.charger_i_max = e.charger_I;
+            ringStats.gas_min = ringStats.gas_max = e.gas_percent;
             initialized = true;
         }
 
@@ -168,6 +171,15 @@ void calcRingStats(uint32_t hours)
             ringStats.charger_i_max = max(ringStats.charger_i_max, e.charger_I);
             ringStats.charger_i_avg += e.charger_I;
         }
+
+        // Gas:
+        if (e.valid_flags & VALID_GAS)
+        {
+            gas_cnt++;
+            ringStats.gas_min = min(ringStats.gas_min, e.gas_percent);
+            ringStats.gas_max = max(ringStats.gas_max, e.gas_percent);
+            ringStats.gas_avg += e.gas_percent;
+        }
     } //ende der Schleife
 
     // Durchschnitte berechnen, noch die division durch die anzahl gültiger werte, wenn > 0, sonst 0
@@ -214,6 +226,12 @@ void calcRingStats(uint32_t hours)
         ringStats.charger_v_avg = ringStats.charger_i_avg = 0;
     }
 
+    if (gas_cnt > 0) {
+        ringStats.gas_avg /= gas_cnt;
+    } else {
+        ringStats.gas_avg = 0;
+    }
+
     ringStats.hours = hours;
     ringStats.valid = true;
     ringStats.valid_sensors = 0;
@@ -223,11 +241,16 @@ void calcRingStats(uint32_t hours)
     if (mppt2_cnt > 0)   ringStats.valid_sensors |= VALID_MPPT2;
     if (charger_cnt > 0) ringStats.valid_sensors |= VALID_CHARGER;
     if (scd_cnt > 0)     ringStats.valid_sensors |= VALID_CO2;
+    if (gas_cnt > 0)     ringStats.valid_sensors |= VALID_GAS;
 }
 
 void sensorPollSetup()
 {
-    ringBuffer = (RingEntry*)ps_malloc(RING_MAX_ENTRIES * sizeof(RingEntry));
+    #ifdef BOARD_HAS_PSRAM
+        ringBuffer = (RingEntry*)ps_malloc(RING_MAX_ENTRIES * sizeof(RingEntry));
+    #else
+        ringBuffer = (RingEntry*)malloc(RING_MAX_ENTRIES * sizeof(RingEntry));
+    #endif
     memset(ringBuffer, 0, RING_MAX_ENTRIES * sizeof(RingEntry)); 
     if (!ringBuffer)
         logPrintln("SensorPoll: Ringpuffer FEHLER");
@@ -324,8 +347,13 @@ void sensorPollLoop()
     sensorData.co2_valid = doc["co2"]["valid"] | false;
     if (sensorData.co2_valid)
         sensorData.co2_ppm = doc["co2"]["co2"] | 0;
-    //co2.co2, da co2.co2 und co2.valid in co2-objekt sind
-    sensorDataUpdated = true; //neue daten da, kann ui aktualisieren
+       //co2.co2, da co2.co2 und co2.valid in co2-objekt sind
+   // Gas Füllstand
+   sensorData.gas_valid = doc["gas"]["valid"] | false;
+   if (sensorData.gas_valid)
+       sensorData.gas_percent = doc["gas"]["percent"] | 0;
+    
+   sensorDataUpdated = true; //neue daten da, kann ui aktualisieren
     
     //static uint32_t lastRingMs = 0;
     if (ringBuffer)// (millis() - lastRingMs >= RING_INTERVAL_MS && ringBuffer)
@@ -338,7 +366,8 @@ void sensorPollLoop()
         if (sensorData.mppt1_valid)    e.valid_flags |= VALID_MPPT1;
         if (sensorData.mppt2_valid)    e.valid_flags |= VALID_MPPT2;
         if (sensorData.charger_valid)  e.valid_flags |= VALID_CHARGER;
-        if (sensorData.co2_valid) e.valid_flags |= VALID_CO2;
+        if (sensorData.co2_valid)      e.valid_flags |= VALID_CO2;
+        if (sensorData.gas_valid)      e.valid_flags |= VALID_GAS;
 
         e.T   = sensorData.temperature;
         e.H   = sensorData.humidity;
@@ -359,6 +388,8 @@ void sensorPollLoop()
         e.mppt2_yield = sensorData.mppt2_yield_today;
         e.charger_V   = sensorData.charger_voltage;
         e.charger_I   = sensorData.charger_current;
+        e.gas_percent = sensorData.gas_valid ? sensorData.gas_percent : 0;
+
         ringHead = (ringHead + 1) % RING_MAX_ENTRIES;
         if (ringCount < RING_MAX_ENTRIES) ringCount++;
     }    

@@ -165,6 +165,8 @@ function vsClass(v) {
     if (v < 12.7)              return 'vs-teal';
     return 'vs-green';
 }
+function gasClass(p) { if (p > 50) return 'ok'; if (p > 20) return 'warn'; return 'err'; }
+
 function toggleIP(cb) {
   document.getElementById('ip-fields').style.display = cb.checked ? 'block' : 'none';
 }
@@ -340,6 +342,12 @@ async function poll() {
       setBadge('chargerP',     (d.charger.V * d.charger.I).toFixed(1) + ' W', 'neutral'); 
       setBadge('chargerState', d.charger.stateStr || '---', 'neutral');
     }
+    // Gas
+    if (d.gas && d.gas.valid) {
+      setBadge('valGas', d.gas.percent + ' %%', gasClass(d.gas.percent));
+    } else {
+      setBadge('valGas', 'kein Sensor', 'neutral');
+    }  
 
   } catch(e) { setText('statusUpdate', 'Fehler'); }
 }
@@ -614,6 +622,7 @@ window.addEventListener('load', () => {
       <div class="kv"><label>Feuchte:</label>    <span class="badge neutral" id="valHum">---</span></div>
       <div class="kv"><label>Luftdruck:</label>  <span class="badge neutral" id="valPress">---</span></div>
       <div class="kv"><label>CO2:</label>        <span class="badge neutral" id="valCO2">---</span></div>
+      <div class='kv'><label>Gas:</label> <span class='badge neutral' id='valGas'>---</span></div>
     </div>
     <div class="status-box">
       <h2>Batterie (BMV712)</h2>
