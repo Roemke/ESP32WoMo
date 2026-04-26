@@ -162,6 +162,12 @@ async function poll() {
       setBadge('mppt2State', d.mppt2.stateStr || '---', 'neutral');
       setBadge('mppt2Y',  d.mppt2.yield + ' Wh', 'neutral');
     }  
+    // Gas Füllstand
+    if (d.gas && d.gas.valid) {
+      setBadge('gasPercent', d.gas.percent + ' %%', gasClass(d.gas.percent));
+    } else {
+    setBadge('gasPercent', 'invalid Gas', 'err');
+}  
 
   } catch(e) {
       setText('statusUpdate', 'Fehler');
@@ -311,6 +317,12 @@ function socClass(s) {
   if (s < 50) return 'warn';
   return 'ok';
 }
+function gasClass(p) {
+  if (p > 50) return 'ok';
+  if (p > 20) return 'warn';
+  return 'err';
+}
+  
 function co2Class(c) {
   if (c > 2000) return 'err';
   if (c > 1000) return 'warn';
@@ -383,7 +395,13 @@ window.addEventListener('load', () => {
       <div class="kv"><label>SoC:</label>            <span class="badge neutral" id="valSOC">---</span></div>
       <div class="kv"><label>Restlaufzeit:</label>   <span class="badge neutral" id="valTTG">---</span></div>
       <div class="kv"><label>Starterbatterie:</label><span class="badge neutral" id="valVS">---</span></div>
+      <h3>⛽ Gas Füllstand</h3>
+      <div class='kv'>
+        <label>Füllstand</label>
+        <span class='badge neutral' id='gasPercent'>---</span>
+      </div>
     </div>
+
     <div class="status-box">
       <h2>Ladegerät (IP22)</h2>
       <div class="kv"><label>Spannung:</label> <span class="badge neutral" id="chargerV">---</span></div>

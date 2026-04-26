@@ -21,7 +21,11 @@ static void bufferAdd(const char *line)
 // ----------------------------------------------------------------
 void logPrintln(const char *text)
 { //umstellen, da staendig aerger mit serial
-    ESP_LOGI("APP", "%s", text);  // statt Serial.println
+    #ifdef CONFIG_IDF_TARGET_ESP32S2
+        Serial.println(text);
+    #else   
+        ESP_LOGI("APP", "%s", text);  // statt Serial.println
+    #endif
     bufferAdd(text);
 }
 
@@ -37,8 +41,11 @@ void logPrintf(const char *format, ...)
     va_start(args, format);
     vsnprintf(buf, sizeof(buf), format, args);
     va_end(args);
-
-    ESP_LOGI("APP", "%s", buf);  // statt Serial.print
+    #ifdef CONFIG_IDF_TARGET_ESP32S2
+        Serial.print(buf);
+    #else       
+        ESP_LOGI("APP", "%s", buf);  // statt Serial.print
+    #endif
 
     // Zeilenweise in den Puffer schreiben
     // (ein logPrintf kann mehrere \n enthalten)
@@ -59,11 +66,20 @@ void logPrintf(const char *format, ...)
 // ----------------------------------------------------------------
 void logDump()
 {
-    ESP_LOGI("APP", "=== Log-Puffer ===");
+    #ifdef CONFIG_IDF_TARGET_ESP32S2
+        Serial.println("=== Log-Puffer ===");
+    #else   
+        ESP_LOGI("APP", "=== Log-Puffer ===");
+    #endif
     for (uint8_t i = 0; i < logCount; i++)
     {
         uint8_t idx = (logIndex + LOG_BUFFER_SIZE - logCount + i) % LOG_BUFFER_SIZE;
         ESP_LOGI("APP", "%s\n", logBuffer[idx]);
     }
-    ESP_LOGI("APP", "==================");
+    #ifdef CONFIG_IDF_TARGET_ESP32S2
+        Serial.println("==================");
+    #else 
+        ESP_LOGI("APP", "==================");
+    #endif
+
 }

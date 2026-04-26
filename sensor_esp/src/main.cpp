@@ -12,9 +12,15 @@
 #include "victronble.h"
 #include "bleconfig.h"
 #include "scd41sensor.h"
+#include "gas.h"
 
+#ifdef CONFIG_IDF_TARGET_ESP32S2
+  #include <USB.h>
+  #include <USBCDC.h>
+  USBCDC USBSerial;
+  #define Serial USBSerial
+#endif
 AsyncWebServer server(HTTP_PORT);
-
 
 //processor - Variablenersetzung beim Ausliefern der Website
 String processor(const String& var)
@@ -50,6 +56,8 @@ String buildDataJson()
     doc["mppt2"]    = serialized(mppt2ToJson());     // MPPT2 via BLE
     doc["charger"]  = serialized(chargerToJson());   // Blue Smart IP22 via BLE
     doc["wifi"]    = wifiGetIP();
+    //fuellstand
+    doc["gas"] = serialized(gasToJson());
 
 
     String out;
@@ -209,40 +217,46 @@ void addRoutes()
         { req->send(404, "application/json", "{\"error\":\"nicht gefunden\"}"); });
 
 }
+
+
 void setup() {
     Serial.begin(115200);
     delay(5000);
-    ESP_LOGI("MAIN","start setup");
+    Serial.println("Mal ein Start mit serial print");
+    logPrintln("Gas Anzeige");
+    pinMode(4, INPUT);
+
+    logPrintln("start setup");
     if (!LittleFS.begin(true))
-        ESP_LOGI("MAIN","LittleFS FEHLER");
+        logPrintln("LittleFS FEHLER");
     else
-        ESP_LOGI("MAIN","LittleFS OK");
+        logPrintln("LittleFS OK");
 
     sensorConfigLoad();
-    ESP_LOGI("MAIN","Config OK");
+    logPrintln("Config OK");
 
     bleConfigLoad();
-    ESP_LOGI("MAIN","BleConfig OK");
-    
+    logPrintln("BleConfig OK");
+
     //folgendes vor wifi setup
-    ESP_LOGI("main","Heap vor BLE: %lu\n", ESP.getFreeHeap());
+    logPrintf("Heap vor BLE: %lu\n", ESP.getFreeHeap());
     victronBleSetup();
-    ESP_LOGI("main","Heap nach BLE: %lu\n", ESP.getFreeHeap());
-    ESP_LOGI("MAIN","VictronBLE OK");    
+    logPrintf("Heap nach BLE: %lu\n", ESP.getFreeHeap());
+    logPrintln("VictronBLE OK");    
 
     wifiSetup();
-    ESP_LOGI("MAIN","WiFi OK");
+    logPrintln("WiFi OK");
 
     
     if (!bme280Setup())
-        ESP_LOGI("MAIN","BME280 FEHLER");
+        logPrintln("BME280 FEHLER");
     else
-        ESP_LOGI("MAIN","BME280 OK");
+        logPrintln("BME280 OK");
 
     if (!scd41Setup())
-        ESP_LOGI("MAIN","SCD41 FEHLER");
+        logPrintln("SCD41 FEHLER");
     else
-        ESP_LOGI("MAIN","SCD41 OK");
+        logPrintln("SCD41 OK");
 
    
     
@@ -258,7 +272,7 @@ void setup() {
     });
 
     server.begin();
-    ESP_LOGI("MAIN","Server OK");    
+    logPrintln("Server OK");    
 }
 
 // WiFi-Watchdog: wenn STA-Modus aber seit >60s keine Verbindung → Neustart
@@ -282,5 +296,6 @@ void loop() {
     bme280Loop();
     scd41Loop();
     victronBleLoop();
+    gasLoop();
     wifiWatchdog();
 }
