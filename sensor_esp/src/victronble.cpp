@@ -149,7 +149,6 @@ MpptData    mppt2Data   = {};
 ChargerData chargerData = {};
 void victronBleSetup() { logPrintln("VictronBLE: S2 Mini hat kein BLE"); }
 void victronBleLoop()  {}
-String chargerToJson() { JsonDocument d; d["valid"]=false; String o; serializeJson(d,o); return o; }
 #endif
 
 // ---- JSON Ausgabe ----------------------------------------
