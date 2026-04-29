@@ -29,6 +29,7 @@ namespace
         float   mppt1_V, mppt1_I, mppt1_PV;
         float   mppt2_V, mppt2_I, mppt2_PV;
         float   charger_V, charger_I;
+        int gas_percent;
         uint8_t valid_flags;
         int     fields;  // Anzahl erfolgreich gelesener Felder
         bool    valid;
@@ -53,8 +54,8 @@ namespace
     // ----------------------------------------------------------------
     void writeHeader(File &f)
     {
-        //f.println("Datum,Zeit,V,I,VS,SOC,TTG_min,P_W,T_C,H_pct,P_hPa,CO2_ppm");
-        f.println("Datum,Zeit,V,I,VS,SOC,TTG_min,P_W,T_C,H_pct,P_hPa,CO2_ppm,MPPT1_V,MPPT1_I,MPPT1_PV,MPPT2_V,MPPT2_I,MPPT2_PV,Charger_V,Charger_I,valid_flags");
+        //f.println("Datum,Zeit,V,I,VS,SOC,TTG_min,P_W,T_C,H_pct,P_hPa,CO2_ppm");        
+        f.println("Datum,Zeit,V,I,VS,SOC,TTG_min,P_W,T_C,H_pct,P_hPa,CO2_ppm,MPPT1_V,MPPT1_I,MPPT1_PV,MPPT2_V,MPPT2_I,MPPT2_PV,Charger_V,Charger_I,Gas_pct,valid_flags");
     }
     // ----------------------------------------------------------------
     // Eine Zeile mit aktuellen Messwerten schreiben
@@ -108,8 +109,9 @@ namespace
         if (sensorData.mppt1_valid)    flags |= VALID_MPPT1;
         if (sensorData.mppt2_valid)    flags |= VALID_MPPT2;
         if (sensorData.charger_valid)  flags |= VALID_CHARGER;
+        if (sensorData.gas_valid)      flags |= VALID_GAS;
 
-        char line[240];
+        char line[256];
         snprintf(line, sizeof(line),
             "%s,%s,%.3f,%.3f,%.3f,%.1f,%d,%.1f,%.1f,%.1f,%.1f,%d,%.2f,%.2f,%.1f,%.2f,%.2f,%.1f,%.2f,%.2f,%d",
             datum, zeit,
@@ -131,6 +133,7 @@ namespace
             sensorData.mppt2_valid    ? sensorData.mppt2_pv_power  : 0.0f,
             sensorData.charger_valid  ? sensorData.charger_voltage : 0.0f,
             sensorData.charger_valid  ? sensorData.charger_current : 0.0f,
+            sensorData.gas_valid      ? sensorData.gas_percent     : 0, 
             flags);
 
 
@@ -157,8 +160,22 @@ namespace
         CsvRow row = {};
         char datum[16], zeit[12];
 
-        // Neues Format versuchen (21 Felder)
-        row.fields = sscanf(line,
+        // Neues Format versuchen (22 Felder)
+        row.fields = sscanf(line,                        
+            "%10[^,],%8[^,],%f,%f,%f,%f,%d,%f,%f,%f,%f,%d,%f,%f,%f,%f,%f,%f,%f,%f,%d,%hhu",
+            datum, zeit,
+            &row.V, &row.I, &row.VS, &row.SOC,
+            &row.TTG, &row.P_W, &row.T_C, &row.H_pct, &row.P_hPa, &row.CO2,
+            &row.mppt1_V, &row.mppt1_I, &row.mppt1_PV,
+            &row.mppt2_V, &row.mppt2_I, &row.mppt2_PV,
+            &row.charger_V, &row.charger_I,
+            &row.gas_percent,   
+            &row.valid_flags); //sollten es das Format mit 21 feldern sein, dann passt die Zuordnung nicht
+        
+        if (row.fields != 22)
+        {
+            row.gas_percent = 0;
+            row.fields = sscanf(line,
             "%10[^,],%8[^,],%f,%f,%f,%f,%d,%f,%f,%f,%f,%d,%f,%f,%f,%f,%f,%f,%f,%f,%hhu",
             datum, zeit,
             &row.V, &row.I, &row.VS, &row.SOC,
@@ -167,7 +184,8 @@ namespace
             &row.mppt2_V, &row.mppt2_I, &row.mppt2_PV,
             &row.charger_V, &row.charger_I,
             &row.valid_flags);
-
+        }
+        //erstes Format hatte 12 Felder, also müsste das so funktionieren.     
         if (row.fields < 12) return row;  // ungültig
 
         char dt[20];
@@ -237,7 +255,7 @@ namespace
         float mppt1_V=0,mppt1_I=0,mppt1_PV=0;
         float mppt2_V=0,mppt2_I=0,mppt2_PV=0;
         float charger_V=0,charger_I=0;
-        int   CO2=0, cnt=0, rowIdx=0;
+        int   CO2=0, GAS=0, cnt=0, rowIdx=0;
         time_t firstTs = 0;
         char tmp[32];
 
@@ -260,6 +278,7 @@ namespace
             float  mppt1_V, mppt1_I, mppt1_PV;
             float  mppt2_V, mppt2_I, mppt2_PV;
             float  charger_V, charger_I;
+            int    gas_percent;
         };
 
         int maxBuckets = points + 2;
@@ -295,8 +314,9 @@ namespace
             b.mppt2_PV = roundf(mppt2_PV/cnt * 10)  / 10.0f;
             b.charger_V = roundf(charger_V/cnt * 100) / 100.0f;
             b.charger_I = roundf(charger_I/cnt * 100) / 100.0f;
+            b.gas_percent = GAS/cnt;
             // Reset
-            T=0;H=0;Pr=0;V=0;I=0;SOC=0;PW=0;CO2=0;VS=0;cnt=0;
+            T=0;H=0;Pr=0;V=0;I=0;SOC=0;PW=0;CO2=0;VS=0;GAS=0;cnt=0;
             mppt1_V=0;mppt1_I=0;mppt1_PV=0;
             mppt2_V=0;mppt2_I=0;mppt2_PV=0;
             charger_V=0;charger_I=0;
@@ -329,7 +349,7 @@ namespace
                         T+=row.T_C; H+=row.H_pct; Pr+=row.P_hPa;
                         CO2+=row.CO2; V+=row.V; I+=row.I;
                         SOC+=row.SOC; PW+=row.P_W; VS+=row.VS;
-                        if (row.fields == 21) {
+                        if (row.fields >= 21 ) {
                             mppt1_V  += row.mppt1_V;
                             mppt1_I  += row.mppt1_I;
                             mppt1_PV += row.mppt1_PV;
@@ -338,6 +358,9 @@ namespace
                             mppt2_PV += row.mppt2_PV;
                             charger_V += row.charger_V;
                             charger_I += row.charger_I;
+                        }
+                        if (row.fields == 22 && (row.valid_flags & VALID_GAS)) {
+                            GAS += row.gas_percent;
                         }
                         cnt++; rowIdx++;
                         if (rowIdx % bucketSize == 0) flushBucket();
@@ -392,7 +415,8 @@ namespace
         for (int i=0;i<bucketCount;i++){if(i)output.print(',');output.print(buckets[i].charger_V,2);}
         output.print("],\"CHARGER_I\":[");
         for (int i=0;i<bucketCount;i++){if(i)output.print(',');output.print(buckets[i].charger_I,2);}
-
+        output.print("],\"GAS\":[");
+        for (int i=0; i<bucketCount; i++) { if (i) output.print(','); output.print(buckets[i].gas_percent); }
         snprintf(tmp, sizeof(tmp), "],\"total\":%d,\"points\":%d}", total, bucketCount);
         output.print(tmp);
 
@@ -529,8 +553,8 @@ void sdFillRingBuffer(uint32_t hours)
                     {
                         RingEntry &e = ringBuffer[ringHead];
                         e.valid_flags = 0;
-                        if (row.fields == 21) {
-                            // neues Format: flags direkt übernehmen
+                        if (row.fields >= 21) { 
+                            // eines der neueren Formate: flags direkt übernehmen
                             e.valid_flags = row.valid_flags;
                         } else {
                             // altes Format: aus Sentinel-Werten ableiten
@@ -538,7 +562,7 @@ void sdFillRingBuffer(uint32_t hours)
                             if (row.V      > -1.0f)  e.valid_flags |= VALID_VE;
                             if (row.CO2    > -1)     e.valid_flags |= VALID_CO2;
                         }
-
+                        
                         e.T   = (e.valid_flags & VALID_BME) ? row.T_C   : 0.0f;
                         e.H   = (e.valid_flags & VALID_BME) ? row.H_pct : 0.0f;
                         e.P   = (e.valid_flags & VALID_BME) ? row.P_hPa : 0.0f;
@@ -548,17 +572,16 @@ void sdFillRingBuffer(uint32_t hours)
                         e.SOC = (e.valid_flags & VALID_VE)  ? row.SOC   : 0.0f;
                         e.PW  = (e.valid_flags & VALID_VE)  ? row.P_W   : 0.0f;
                         e.VS  = (e.valid_flags & VALID_VE)  ? row.VS    : 0.0f;
-                        if (row.fields == 21) {
-                            e.mppt1_V   = row.mppt1_V;
-                            e.mppt1_I   = row.mppt1_I;
-                            e.mppt1_PV  = row.mppt1_PV;
-                            e.mppt2_V   = row.mppt2_V;
-                            e.mppt2_I   = row.mppt2_I;
-                            e.mppt2_PV  = row.mppt2_PV;
-                            e.charger_V = row.charger_V;
-                            e.charger_I = row.charger_I;
-                        }
-
+                        e.mppt1_V   = (e.valid_flags & VALID_MPPT1)  ? row.mppt1_V   : 0.0f;
+                        e.mppt1_I   = (e.valid_flags & VALID_MPPT1)  ? row.mppt1_I   : 0.0f;
+                        e.mppt1_PV  = (e.valid_flags & VALID_MPPT1)  ? row.mppt1_PV  : 0.0f;
+                        e.mppt2_V   = (e.valid_flags & VALID_MPPT2)  ? row.mppt2_V   : 0.0f;
+                        e.mppt2_I   = (e.valid_flags & VALID_MPPT2)  ? row.mppt2_I   : 0.0f;
+                        e.mppt2_PV  = (e.valid_flags & VALID_MPPT2)  ? row.mppt2_PV  : 0.0f;
+                        e.charger_V = (e.valid_flags & VALID_CHARGER) ? row.charger_V : 0.0f;
+                        e.charger_I = (e.valid_flags & VALID_CHARGER) ? row.charger_I : 0.0f;
+                        //sollte auch klappen wenn gas dabei ist oder nicht, da wir die gültigkeit über die flags steuern
+                        e.gas_percent = (e.valid_flags & VALID_GAS) ? row.gas_percent : 0;
                         ringHead = (ringHead + 1) % RING_MAX_ENTRIES;
                         if (ringCount < RING_MAX_ENTRIES) ringCount++;
                     }
