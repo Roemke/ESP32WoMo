@@ -20,3 +20,40 @@ Grün und GND zu messen, das sind nur bis ca 170 mV wenn ganz voll
 Kabelfarben damit blau für eingang adc esp, grün kommt vom display, schwarz
 kurz für esp, lang für gnd der Anzeige.
 
+
+mal Messung der raw werte, 2 x 100 Ohm poti
+raw    led
+0      rot E
+490    8/8
+480    8/8 
+480    7/8 
+470    7/8
+450    7/8
+440    7/8
+420    7/8
+414    6/8
+380    6/8
+360    5/8
+322    5/8
+290    5/8
+270    4/8
+250    4/8
+250    3/8
+220    3/8
+180    3/8 
+150    2/8 
+125    2/8
+120    2/8 springt auch auf 1/8
+100    1/8 
+70     1/8
+70     0/8
+60     0/8
+0      0/8
+
+bei fester widerstandseinstellung sinkt raw, bis sich die led bewegt, dann
+geht raw wieder hoch und sinkt wieder 
+
+auch bei 200 Ohm habe ich werte die massiv hochgehen raw 600, danach pendelt es sich
+auf niedrigen werten zwischen 400 und 480 ein manchmal auch bei 550, dann
+geht led auf 8/8 klar, insgesamt seltsames verhalten, hängt auch am drehen 
+der potis sehr seltsam 
