@@ -159,11 +159,7 @@ void handleStats(AsyncWebServerRequest *req)
     addStats("MPPT2_PV", ringStats.mppt2_pv_min, ringStats.mppt2_pv_max, ringStats.mppt2_pv_avg);
     addStats("CHARGER_V", ringStats.charger_v_min, ringStats.charger_v_max, ringStats.charger_v_avg);
     addStats("CHARGER_I", ringStats.charger_i_min, ringStats.charger_i_max, ringStats.charger_i_avg);
-
-    // Gas – int statt float, daher manuell
-    doc["GAS"]["min"] = ringStats.gas_min;
-    doc["GAS"]["max"] = ringStats.gas_max;
-    doc["GAS"]["avg"] = ringStats.gas_avg;
+    addStats("GAS", ringStats.gas_min, ringStats.gas_max, ringStats.gas_avg);   
 
     String out;
     serializeJson(doc, out);
@@ -291,7 +287,6 @@ void setup()
 {
     Serial.begin(115200);
     delay(5000);
-    delay(3000);
     Serial.println("=== WoMo S2 Mini Start ===");
 
     if (!LittleFS.begin(true))

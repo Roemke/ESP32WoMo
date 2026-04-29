@@ -54,7 +54,8 @@ const char index_html[] PROGMEM = R"rawliteral(
     min-width: 250px; flex: 1;
   }
   /* ---- für die Statistiken --- */
-  tr.alt { background: #1a2a4e; }
+  
+  tr:nth-child(even) { background: #1a2a4e; }
 
   /* ---- Key-Value Zeilen ---- */
   .kv { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
@@ -210,6 +211,7 @@ async function loadStats() {
     const VALID_MPPT2   = 8;
     const VALID_CHARGER = 16;
     const VALID_CO2     = 32;
+    const VALID_GAS     = 64;
 
     const showStats = (key, suffix, dec, flag) => {
       const cells = ['min','max','avg'];
@@ -238,7 +240,15 @@ async function loadStats() {
     } else {
       ['min','max','avg'].forEach(c => setText('st-co2-' + c, '---'));
     }
-
+    // Gas
+    if (vs & VALID_GAS) {
+      setText('st-GAS-min', d.GAS.min + ' %%');
+      setText('st-GAS-max', d.GAS.max + ' %%');
+      setText('st-GAS-avg', d.GAS.avg + ' %%');
+    } else {
+      ['min','max','avg'].forEach(c => setText('st-GAS-' + c, '---'));
+    }
+    //die längeren 
     if (vs & VALID_MPPT1) {
       setText('st-mppt1v-min',  d.MPPT1_V.min.toFixed(2)  + ' V');
       setText('st-mppt1v-max',  d.MPPT1_V.max.toFixed(2)  + ' V');
@@ -700,7 +710,7 @@ window.addEventListener('load', () => {
           <td style="text-align:right" id="st-t-min">-</td>
           <td style="text-align:right" id="st-t-max">-</td>
           <td style="text-align:right" id="st-t-avg">-</td></tr>
-        <tr class="alt"><td>Feuchte</td>
+        <tr ><td>Feuchte</td>
           <td style="text-align:right" id="st-h-min">-</td>
           <td style="text-align:right" id="st-h-max">-</td>
           <td style="text-align:right" id="st-h-avg">-</td></tr>
@@ -708,15 +718,19 @@ window.addEventListener('load', () => {
           <td style="text-align:right" id="st-p-min">-</td>
           <td style="text-align:right" id="st-p-max">-</td>
           <td style="text-align:right" id="st-p-avg">-</td></tr>
-        <tr class="alt"><td>CO2</td>
+        <tr ><td>CO2</td>
           <td style="text-align:right" id="st-co2-min">-</td>
           <td style="text-align:right" id="st-co2-max">-</td>
           <td style="text-align:right" id="st-co2-avg">-</td></tr>
+        <tr ><td>Gas Füllstand</td>
+          <td style="text-align:right" id="st-GAS-min">-</td>
+          <td style="text-align:right" id="st-GAS-max">-</td>
+          <td style="text-align:right" id="st-GAS-avg">-</td></tr>  
         <tr><td>Spannung</td>
           <td style="text-align:right" id="st-v-min">-</td>
           <td style="text-align:right" id="st-v-max">-</td>
           <td style="text-align:right" id="st-v-avg">-</td></tr>
-        <tr class="alt"><td>Strom</td>
+        <tr ><td>Strom</td>
           <td style="text-align:right" id="st-i-min">-</td>
           <td style="text-align:right" id="st-i-max">-</td>
           <td style="text-align:right" id="st-i-avg">-</td></tr>
@@ -724,7 +738,7 @@ window.addEventListener('load', () => {
           <td style="text-align:right" id="st-soc-min">-</td>
           <td style="text-align:right" id="st-soc-max">-</td>
           <td style="text-align:right" id="st-soc-avg">-</td></tr>
-        <tr class="alt"><td>Leistung</td>
+        <tr ><td>Leistung</td>
           <td style="text-align:right" id="st-pw-min">-</td>
           <td style="text-align:right" id="st-pw-max">-</td>
           <td style="text-align:right" id="st-pw-avg">-</td></tr>
@@ -732,7 +746,7 @@ window.addEventListener('load', () => {
           <td style="text-align:right" id="st-vs-min">-</td>
           <td style="text-align:right" id="st-vs-max">-</td>
           <td style="text-align:right" id="st-vs-avg">-</td></tr>
-        <tr class="alt"><td>MPPT1 Spannung</td>
+        <tr ><td>MPPT1 Spannung</td>
           <td style="text-align:right" id="st-mppt1v-min">-</td>
           <td style="text-align:right" id="st-mppt1v-max">-</td>
           <td style="text-align:right" id="st-mppt1v-avg">-</td></tr>
@@ -740,7 +754,7 @@ window.addEventListener('load', () => {
           <td style="text-align:right" id="st-mppt1pv-min">-</td>
           <td style="text-align:right" id="st-mppt1pv-max">-</td>
           <td style="text-align:right" id="st-mppt1pv-avg">-</td></tr>
-        <tr class="alt"><td>MPPT2 Spannung</td>
+        <tr ><td>MPPT2 Spannung</td>
           <td style="text-align:right" id="st-mppt2v-min">-</td>
           <td style="text-align:right" id="st-mppt2v-max">-</td>
           <td style="text-align:right" id="st-mppt2v-avg">-</td></tr>
@@ -748,7 +762,7 @@ window.addEventListener('load', () => {
           <td style="text-align:right" id="st-mppt2pv-min">-</td>
           <td style="text-align:right" id="st-mppt2pv-max">-</td>
           <td style="text-align:right" id="st-mppt2pv-avg">-</td></tr>
-        <tr class="alt"><td>Charger Spannung</td>
+        <tr ><td>Charger Spannung</td>
           <td style="text-align:right" id="st-chargerv-min">-</td>
           <td style="text-align:right" id="st-chargerv-max">-</td>
           <td style="text-align:right" id="st-chargerv-avg">-</td></tr>

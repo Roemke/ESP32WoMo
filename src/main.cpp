@@ -119,6 +119,12 @@ String buildDataJson()
     if (sensorData.co2_valid)
         co2["co2"] = sensorData.co2_ppm;
 
+    //füllstand Gas
+    JsonObject gas = doc["gas"].to<JsonObject>();
+    gas["valid"] = sensorData.gas_valid;
+    if (sensorData.gas_valid)
+        gas["percent"] = sensorData.gas_percent;
+
     doc["wifi"] = wifiGetIP();
 
     String out;
@@ -222,6 +228,7 @@ void handleStats(AsyncWebServerRequest *req)
     addStats("VS",  ringStats.vs_min,  ringStats.vs_max,  ringStats.vs_avg);
 
     addStats("CO2", ringStats.co2_min, ringStats.co2_max, ringStats.co2_avg);
+    addStats("GAS", ringStats.gas_min, ringStats.gas_max, ringStats.gas_avg);
 
     addStats("MPPT1_V",  ringStats.mppt1_v_min,  ringStats.mppt1_v_max,  ringStats.mppt1_v_avg);
     addStats("MPPT1_I",  ringStats.mppt1_i_min,  ringStats.mppt1_i_max,  ringStats.mppt1_i_avg);
