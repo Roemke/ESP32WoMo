@@ -48,6 +48,11 @@ const char index_html[] PROGMEM = R"rawliteral(
     border-radius: 8px; padding: 12px 20px;
     min-width: 250px; flex: 1;
   }
+  .overline{
+    margin-top: 16px; padding-top: 16px;
+    border-top: 1px solid #3a3a8e;
+    font-size: 0.9em; color: #8888bb;
+  } 
 
   /* ---- Key-Value Zeilen ---- */
   .kv { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
@@ -395,7 +400,7 @@ window.addEventListener('load', () => {
       <div class="kv"><label>SoC:</label>            <span class="badge neutral" id="valSOC">---</span></div>
       <div class="kv"><label>Restlaufzeit:</label>   <span class="badge neutral" id="valTTG">---</span></div>
       <div class="kv"><label>Starterbatterie:</label><span class="badge neutral" id="valVS">---</span></div>
-      <h3>⛽ Gas Füllstand</h3>
+      <h3 class="overline">⛽ Gas Füllstand</h3>
       <div class='kv'>
         <label>Füllstand</label>
         <span class='badge neutral' id='gasPercent'>---</span>

@@ -41,6 +41,11 @@ const char index_html[] PROGMEM = R"rawliteral(
   .tab button.active { background: #16213e; color: #ffffff; }
   .tabcontent { display: none; padding: 16px; }
 
+  .overline{
+    margin-top: 16px; padding-top: 16px;
+    border-top: 1px solid #3a3a8e;
+    font-size: 0.9em; color: #8888bb;
+  } 
   /* ---- Zweispaltig für Status ---- */
   .status-grid { display: flex; gap: 20px; flex-wrap: wrap; }
   .status-box {
@@ -622,7 +627,11 @@ window.addEventListener('load', () => {
       <div class="kv"><label>Feuchte:</label>    <span class="badge neutral" id="valHum">---</span></div>
       <div class="kv"><label>Luftdruck:</label>  <span class="badge neutral" id="valPress">---</span></div>
       <div class="kv"><label>CO2:</label>        <span class="badge neutral" id="valCO2">---</span></div>
-      <div class='kv'><label>Gas:</label> <span class='badge neutral' id='valGas'>---</span></div>
+      <h3 class="overline">⛽ Gas Füllstand</h3>
+      <div class='kv'>
+        <label>Füllstand</label>
+        <span class='badge neutral' id='valGas'>---</span>
+      </div>
     </div>
     <div class="status-box">
       <h2>Batterie (BMV712)</h2>
