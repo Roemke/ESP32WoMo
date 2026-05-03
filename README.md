@@ -3,6 +3,9 @@
 A dual-ESP32 monitoring and control system for a motorhome / camper (Wohnmobil), providing real-time sensor data, battery monitoring, solar charge controller tracking, and lighting control via a touchscreen display and web interface.
 Collected data are written ervery 60s to a SD-Card (Display ESP provides a slot for cards up to 32 GB - as far as I remember) 
 
+This branch is without the integration of a Truma Remote Switch Gas-Sensor.
+That one is added in the main-branch. 
+
 ## Status ##
 It is an experimental project to replace the old raspberry with LCD (10
 years) and I use claude to develop cause it is helpful to search for
