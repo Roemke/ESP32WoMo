@@ -243,14 +243,16 @@ void sensorPollLoop()
     static uint32_t lastPollMs = 0;
     if (millis() - lastPollMs < appConfig.sensor_poll_interval_ms) return;
     
-    lastPollMs = millis();
 
     HTTPClient http;
     String url = "http://" + String(appConfig.sensor_esp_ip) + "/api/data";
+    logPrintf("SensorPoll URL: %s\n", url.c_str());
     http.begin(url);
     http.setTimeout(2000);
     http.setConnectTimeout(2000);
     int code = http.GET();
+    lastPollMs = millis();
+
     if (code != 200)
     {
         logPrintf("SensorPoll: HTTP Fehler %d\n", code);
