@@ -78,7 +78,7 @@ struct RingStats {
   #if CONFIG_IDF_TARGET_ESP32S2
     #define RING_MAX_ENTRIES  25000  // ~14h bei 2s Intervall, passt in 2MB
   #else
-    #define RING_MAX_ENTRIES  75600  // S3 mit 8MB PSRAM
+    #define RING_MAX_ENTRIES  72000  // S3 mit 8MB PSRAM
   #endif
 #else
   #define RING_MAX_ENTRIES  500     // kein PSRAM

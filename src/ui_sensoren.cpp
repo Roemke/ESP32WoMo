@@ -107,8 +107,8 @@ static void makeTitle(lv_obj_t *parent, const char *text)
     lv_obj_t *t = lv_label_create(parent);
     lv_label_set_text(t, text);
     lv_obj_set_style_text_color(t, lv_color_hex(0xAAAAFF), 0);
-    lv_obj_set_style_text_font(t, &lv_font_montserrat_24, 0);  // 24 für Titel
-    lv_obj_align(t, LV_ALIGN_TOP_MID, 0, 8);
+    lv_obj_set_style_text_font(t, &lv_font_montserrat_22, 0);  // 24 für Titel
+    lv_obj_align(t, LV_ALIGN_TOP_LEFT, 4, 8);
 }
 
 
@@ -120,13 +120,13 @@ static lv_obj_t *makeRow(lv_obj_t *parent, const char *key, int y)
     lv_obj_t *k = lv_label_create(parent);
     lv_label_set_text(k, key);
     lv_obj_set_style_text_color(k, lv_color_hex(0x8888BB), 0);
-    lv_obj_set_style_text_font(k, &lv_font_montserrat_26, 0);
+    lv_obj_set_style_text_font(k, &lv_font_montserrat_22, 0);
     lv_obj_align(k, LV_ALIGN_TOP_LEFT, 12, y);
 
     lv_obj_t *v = lv_label_create(parent);
     lv_label_set_text(v, "---");
     lv_obj_set_style_text_color(v, lv_color_hex(0xEEEEFF), 0);
-    lv_obj_set_style_text_font(v, &lv_font_montserrat_28, 0);
+    lv_obj_set_style_text_font(v, &lv_font_montserrat_24, 0);
     lv_obj_align(v, LV_ALIGN_TOP_RIGHT, -12, y - 2);
     return v;
 }
@@ -175,14 +175,14 @@ void uiSensorenSetup(lv_obj_t *tab)
     // Nutzbare Fläche: 800 × 440px (480px - 40px Tabs)
     // Links: Batterie 388×432, Rechts: Klima 388×432, Abstand 8px
     // Abstaende Zeilen
-    const int row_start = 34;
-    const int row_step  = 62;
+    const int row_start = 50;
+    const int row_step  = 60;
     // Klima-Panel links oben
-    lv_obj_t *p_klima = makePanel(tab, 0, 0, 388, 290);
+    lv_obj_t *p_klima = makePanel(tab, 0, 0, 396, 290);
 
     lv_obj_t *imgLeft = lv_image_create(p_klima);
     lv_image_set_src(imgLeft, &earthSmall);
-    lv_obj_set_pos(imgLeft, 50, 100);
+    lv_obj_set_pos(imgLeft, 80, 70);
     lv_obj_move_to_index(imgLeft, 0);
 
     makeTitle(p_klima, "Klima");
@@ -206,19 +206,19 @@ void uiSensorenSetup(lv_obj_t *tab)
     s_co2_ind  = makeIndicator(p_klima, row_start + row_step * 3 + 24);
 
     // Gas-Panel links unten
-    LV_IMAGE_DECLARE(gasSmall);
-    lv_obj_t *p_gas = makePanel(tab, 0, 298, 388, 134);
+    LV_IMAGE_DECLARE(GasTankIcon);
+    lv_obj_t *p_gas = makePanel(tab, 0, 296, 396, 94);
 
     lv_obj_t *imgGas = lv_image_create(p_gas);
     lv_image_set_src(imgGas, &GasTankIcon);
-    lv_obj_set_pos(imgGas, 8, 8);
+    lv_obj_set_pos(imgGas, 65, 32);
     lv_obj_move_to_index(imgGas, 0);
 
-    s_gas     = makeRow(p_gas, "Gas:", row_start);
-    s_gas_ind = makeIndicator(p_gas, row_start + 24);
+    s_gas     = makeRow(p_gas, "Gas", 32);
+    s_gas_ind = makeIndicator(p_gas, 32 + 24);
 
     // Batterie-Panel rechts volle Höhe
-    lv_obj_t *p_bat = makePanel(tab, 404, 0, 388, 440);
+    lv_obj_t *p_bat = makePanel(tab, 404, 0, 388, 388);
     makeTitle(p_bat, "Batterie (BMV712)");
 
     lv_obj_t *imgRight = lv_image_create(p_bat);
