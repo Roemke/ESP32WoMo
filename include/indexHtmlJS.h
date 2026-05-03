@@ -401,7 +401,7 @@ function initDatepickers() {
       String(d.getMinutes()).padStart(2,'0');
   }
 
-  ['klima','bat','solar'].forEach(ch => {
+  ['klima','bat','solar','gas'].forEach(ch => {
     setVal('from_' + ch, toLocal(ago));
     setVal('to_'   + ch, toLocal(now));
   });
@@ -413,6 +413,7 @@ function initDatepickers() {
 let chartKlima    = null;
 let chartSolar    = null;
 let chartBatterie = null;
+let chartGas      = null;
 
 const CHART_DEFAULTS = {
   animation: false,
@@ -495,6 +496,19 @@ async function loadHistory(channel) {
           }
         });
     } 
+    else if (channel === 'gas') {
+      if (chartGas) chartGas.destroy();
+      chartGas = new Chart(canvas, {
+        type: 'line',
+        options: CHART_DEFAULTS,
+        data: {
+          labels: d.labels,
+          datasets: [
+            { label: 'Gas Füllstand (%%)', data: d.GAS, borderColor: '#ffa726', tension: 0.3, pointRadius: 0 }
+          ]
+        }
+      });
+    }    
     else {
       if (chartBatterie) chartBatterie.destroy();
       chartBatterie = new Chart(canvas, {
@@ -583,6 +597,46 @@ async function setDisplay() {
     }, 500);
 }
 
+
+async function listSD() {
+  const dir = getVal('sdDir');
+  try {
+    const r = await fetch('/api/sd/list?dir=' + encodeURIComponent(dir));
+    const d = await r.json();
+    const div = document.getElementById('sdFiles');
+    div.innerHTML = '';
+    if (!d.files || d.files.length === 0) { div.textContent = 'Keine Dateien'; return; }
+    d.files.forEach(f => {
+      const line = document.createElement('div');
+      if (f.dir) {
+        line.textContent = '📁 ' + f.name;
+      } else {
+        const dlPath = encodeURIComponent(dir + '/' + f.name);
+        line.innerHTML = `📄 ${f.name} (${(f.size/1024).toFixed(1)} KB) ` +
+          `<a href="/api/sd/download?file=${dlPath}" style="color:#44aaff">Download</a>`;
+      }
+      div.appendChild(line);
+    });
+  } catch(e) { document.getElementById('sdFiles').textContent = 'Fehler'; }
+}
+
+async function uploadSD() {
+  const file = document.getElementById('sdUploadFile').files[0];
+  if (!file) return;
+  const dir  = getVal('sdUploadDir');
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    const r = await fetch('/api/sd/upload?dir=' + encodeURIComponent(dir), {
+      method: 'POST', body: form
+    });
+    document.getElementById('sdUploadStatus').textContent =
+      r.ok ? 'Erfolgreich hochgeladen!' : 'Fehler beim Hochladen';
+  } catch(e) {
+    document.getElementById('sdUploadStatus').textContent = 'Verbindungsfehler';
+  }
+}
+
 // ================================================================
 // Start
 // ================================================================
@@ -619,6 +673,7 @@ window.addEventListener('load', () => {
   <button class="tablink" id="defaultTab" onclick="openTab(event,'status')">Status</button>
   <button class="tablink"                 onclick="openTab(event,'histKlima')">Klima-Verlauf</button>
   <button class="tablink"                 onclick="openTab(event,'histBat')">Batterie-Verlauf</button>
+  <button class="tablink"                 onclick="openTab(event,'histGas')">Gas-Verlauf</button>
   <button class="tablink"                 onclick="openTab(event,'histSolar')">Solar & Charger</button>
   <button class="tablink"                 onclick="openTab(event,'beleuchtung')">Beleuchtung</button>
   <button class="tablink"                 onclick="openTab(event,'config')">Konfiguration</button>
@@ -678,10 +733,7 @@ window.addEventListener('load', () => {
       <div class="kv"><label>Leistung PV:</label> <span class="badge neutral" id="mppt2PV">---</span></div>
       <div class="kv"><label>Status:</label>      <span class="badge neutral" id="mppt2State">---</span></div>
       <div class="kv"><label>Ertrag heute:</label><span class="badge neutral" id="mppt2Y">---</span></div>
-    </div>
-
-    
-
+    </div>        
   </div>
   <!-- Stats unterhalb der Sensordaten -->
   <div style="margin-top:16px">
@@ -818,6 +870,26 @@ window.addEventListener('load', () => {
     Leistung ist standardmäßig ausgeblendet – in der Legende anklicken zum Einblenden.
   </p>
 </div>
+
+<!-- ============================================================ -->
+<!-- TAB: GAS-VERLAUF                                             -->
+<!-- ============================================================ -->
+<div id="histGas" class="tabcontent">
+      <div class="history-controls">
+        <label>Von</label>
+        <input type="datetime-local" id="from_gas">
+        <label>Bis</label>
+        <input type="datetime-local" id="to_gas">
+        <button class="btn" onclick="loadHistory('gas')">Laden</button>
+        <span id="info_gas" style="color:#666688;font-size:0.85em"></span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="chart_gas"></canvas>
+        <div class="chart-loading" id="loading_gas" style="display:none">Lade Daten...</div>
+      </div>
+</div>
+    
+
 
 <!-- ============================================================ -->
 <!-- TAB: History Solar und Charger                               -->
@@ -961,49 +1033,6 @@ window.addEventListener('load', () => {
   <button class="btn" onclick="document.getElementById('logContainer').innerHTML=''">Log leeren</button>
   <div id="logContainer"></div>
 </div>
-
-<script>
-// SD-Funktionen (nach dem HTML damit IDs verfügbar sind)
-async function listSD() {
-  const dir = getVal('sdDir');
-  try {
-    const r = await fetch('/api/sd/list?dir=' + encodeURIComponent(dir));
-    const d = await r.json();
-    const div = document.getElementById('sdFiles');
-    div.innerHTML = '';
-    if (!d.files || d.files.length === 0) { div.textContent = 'Keine Dateien'; return; }
-    d.files.forEach(f => {
-      const line = document.createElement('div');
-      if (f.dir) {
-        line.textContent = '📁 ' + f.name;
-      } else {
-        const dlPath = encodeURIComponent(dir + '/' + f.name);
-        line.innerHTML = `📄 ${f.name} (${(f.size/1024).toFixed(1)} KB) ` +
-          `<a href="/api/sd/download?file=${dlPath}" style="color:#44aaff">Download</a>`;
-      }
-      div.appendChild(line);
-    });
-  } catch(e) { document.getElementById('sdFiles').textContent = 'Fehler'; }
-}
-
-async function uploadSD() {
-  const file = document.getElementById('sdUploadFile').files[0];
-  if (!file) return;
-  const dir  = getVal('sdUploadDir');
-  const form = new FormData();
-  form.append('file', file);
-  try {
-    const r = await fetch('/api/sd/upload?dir=' + encodeURIComponent(dir), {
-      method: 'POST', body: form
-    });
-    document.getElementById('sdUploadStatus').textContent =
-      r.ok ? 'Erfolgreich hochgeladen!' : 'Fehler beim Hochladen';
-  } catch(e) {
-    document.getElementById('sdUploadStatus').textContent = 'Verbindungsfehler';
-  }
-}
-</script>
-
 </body>
 </html>
 )rawliteral";

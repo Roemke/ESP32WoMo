@@ -24,6 +24,8 @@ static lv_obj_t *s_ip      = nullptr;
 //die beiden Bilder
 LV_IMAGE_DECLARE(earthSmall);
 LV_IMAGE_DECLARE(tardisSmall);
+//und ein icon
+LV_IMAGE_DECLARE(GasTankIcon);
 
 // ----------------------------------------------------------------
 // Indikator-Handles (farbige Linien unter den Werten)
@@ -33,6 +35,8 @@ static lv_obj_t *s_hum_ind  = nullptr;
 static lv_obj_t *s_co2_ind  = nullptr;
 static lv_obj_t *s_soc_ind  = nullptr;
 static lv_obj_t *s_vs_ind = nullptr;
+static lv_obj_t *s_gas     = nullptr;
+static lv_obj_t *s_gas_ind = nullptr;
  
 // ----------------------------------------------------------------
 // Farben
@@ -71,6 +75,12 @@ static lv_color_t vsColor(float v) {
     return                              lv_color_hex(0x00FF88); // hellgrün
 } 
 
+static lv_color_t gasColor(int g) {
+    if (g < 20) return COLOR_ERR;
+    if (g < 50) return COLOR_WARN;
+    return COLOR_OK;
+}
+
 // ----------------------------------------------------------------
 // Hilfsfunktion: Panel erstellen
 // ----------------------------------------------------------------
@@ -97,7 +107,7 @@ static void makeTitle(lv_obj_t *parent, const char *text)
     lv_obj_t *t = lv_label_create(parent);
     lv_label_set_text(t, text);
     lv_obj_set_style_text_color(t, lv_color_hex(0xAAAAFF), 0);
-    lv_obj_set_style_text_font(t, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_font(t, &lv_font_montserrat_24, 0);  // 24 für Titel
     lv_obj_align(t, LV_ALIGN_TOP_MID, 0, 8);
 }
 
@@ -110,13 +120,13 @@ static lv_obj_t *makeRow(lv_obj_t *parent, const char *key, int y)
     lv_obj_t *k = lv_label_create(parent);
     lv_label_set_text(k, key);
     lv_obj_set_style_text_color(k, lv_color_hex(0x8888BB), 0);
-    lv_obj_set_style_text_font(k, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_font(k, &lv_font_montserrat_26, 0);
     lv_obj_align(k, LV_ALIGN_TOP_LEFT, 12, y);
 
     lv_obj_t *v = lv_label_create(parent);
     lv_label_set_text(v, "---");
     lv_obj_set_style_text_color(v, lv_color_hex(0xEEEEFF), 0);
-    lv_obj_set_style_text_font(v, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_font(v, &lv_font_montserrat_28, 0);
     lv_obj_align(v, LV_ALIGN_TOP_RIGHT, -12, y - 2);
     return v;
 }
@@ -146,6 +156,7 @@ void uiSensorenSetIndicatorOpacity()
     lv_obj_set_style_bg_opa(s_co2_ind,  opa, 0);
     lv_obj_set_style_bg_opa(s_soc_ind,  opa, 0);
     lv_obj_set_style_bg_opa(s_vs_ind,   opa, 0);
+    lv_obj_set_style_bg_opa(s_gas_ind,  opa, 0);
 }
 
 // ================================================================
@@ -166,58 +177,65 @@ void uiSensorenSetup(lv_obj_t *tab)
     // Abstaende Zeilen
     const int row_start = 34;
     const int row_step  = 62;
-    // ---- Klima-Panel (links) ------------------------------------
-    lv_obj_t *p_klima = makePanel(tab, 0, 0, 388, 392);
+    // Klima-Panel links oben
+    lv_obj_t *p_klima = makePanel(tab, 0, 0, 388, 290);
 
-    // Bild direkt als Objekt ins Panel, soll im psram liegen
     lv_obj_t *imgLeft = lv_image_create(p_klima);
-    //lv_image_set_src(imgLeft,  "S:/earthSmall.bin");
-    lv_image_set_src(imgLeft,  &earthSmall);
-    lv_obj_set_pos(imgLeft, 50, 190);
-    lv_obj_move_to_index(imgLeft, 0);  // ganz nach unten in der Z-Order
+    lv_image_set_src(imgLeft, &earthSmall);
+    lv_obj_set_pos(imgLeft, 50, 100);
+    lv_obj_move_to_index(imgLeft, 0);
 
     makeTitle(p_klima, "Klima");
 
-    s_temp  = makeRow(p_klima, "Temperatur:", row_start);
-    s_temp_ind = makeIndicator(p_klima, row_start + 22);
-
-    s_hum   = makeRow(p_klima, "Feuchte:",    row_start + row_step);
-    s_hum_ind  = makeIndicator(p_klima, row_start + row_step + 22);
-    
-    s_press = makeRow(p_klima, "Luftdruck:",  row_start + row_step * 2);
-    
-    s_co2   = makeRow(p_klima, "CO2:",        row_start + row_step * 3);
-    s_co2_ind  = makeIndicator(p_klima, row_start + row_step * 3 + 22); 
-    
-    // IP-Adresse unten rechts
+    // IP rechts neben Titel
     s_ip = lv_label_create(p_klima);
     lv_label_set_text(s_ip, "---");
     lv_obj_set_style_text_color(s_ip, lv_color_hex(0x666688), 0);
     lv_obj_set_style_text_font(s_ip, &lv_font_montserrat_16, 0);
-    lv_obj_align(s_ip, LV_ALIGN_BOTTOM_RIGHT, -10, -8);
+    lv_obj_align(s_ip, LV_ALIGN_TOP_RIGHT, -10, 10);
 
-    // ---- Batterie-Panel (rechts) ----------------------------------
-    lv_obj_t *p_bat = makePanel(tab, 404, 0, 388, 392);
+    s_temp  = makeRow(p_klima, "Temperatur:", row_start);
+    s_temp_ind = makeIndicator(p_klima, row_start + 24);
+
+    s_hum   = makeRow(p_klima, "Feuchte:",    row_start + row_step);
+    s_hum_ind  = makeIndicator(p_klima, row_start + row_step + 24);
+
+    s_press = makeRow(p_klima, "Luftdruck:",  row_start + row_step * 2);
+
+    s_co2   = makeRow(p_klima, "CO2:",        row_start + row_step * 3);
+    s_co2_ind  = makeIndicator(p_klima, row_start + row_step * 3 + 24);
+
+    // Gas-Panel links unten
+    LV_IMAGE_DECLARE(gasSmall);
+    lv_obj_t *p_gas = makePanel(tab, 0, 298, 388, 134);
+
+    lv_obj_t *imgGas = lv_image_create(p_gas);
+    lv_image_set_src(imgGas, &GasTankIcon);
+    lv_obj_set_pos(imgGas, 8, 8);
+    lv_obj_move_to_index(imgGas, 0);
+
+    s_gas     = makeRow(p_gas, "Gas:", row_start);
+    s_gas_ind = makeIndicator(p_gas, row_start + 24);
+
+    // Batterie-Panel rechts volle Höhe
+    lv_obj_t *p_bat = makePanel(tab, 404, 0, 388, 440);
     makeTitle(p_bat, "Batterie (BMV712)");
-    // Bild direkt als Objekt ins Panel
-    lv_obj_t *imgRight = lv_image_create(p_bat);
-    //lv_image_set_src(imgRight,  "S:/tardisSmall.bin");
-    lv_image_set_src(imgRight,  &tardisSmall);
-    lv_obj_set_pos(imgRight, 150, 100);
-    lv_obj_move_to_index(imgRight, 0);  // ganz nach unten in der Z-Order
 
-    
+    lv_obj_t *imgRight = lv_image_create(p_bat);
+    lv_image_set_src(imgRight, &tardisSmall);
+    lv_obj_set_pos(imgRight, 150, 100);
+    lv_obj_move_to_index(imgRight, 0);
 
     s_volt    = makeRow(p_bat, "Spannung:",  row_start);
     s_current = makeRow(p_bat, "Strom:",     row_start + row_step);
     s_power   = makeRow(p_bat, "Leistung:",  row_start + row_step * 2);
     s_soc     = makeRow(p_bat, "SoC:",       row_start + row_step * 3);
-    s_soc_ind  = makeIndicator(p_bat, row_start + row_step * 3 + 22);
+    s_soc_ind  = makeIndicator(p_bat, row_start + row_step * 3 + 24);
     s_ttg     = makeRow(p_bat, "Restlauf:",  row_start + row_step * 4);
     s_vs      = makeRow(p_bat, "Starter:",   row_start + row_step * 5);
-    s_vs_ind  = makeIndicator(p_bat, row_start + row_step * 5 + 22);
+    s_vs_ind  = makeIndicator(p_bat, row_start + row_step * 5 + 24);
 
-    uiSensorenSetIndicatorOpacity(); //einmal gesammelt setzen
+    uiSensorenSetIndicatorOpacity();
 }
 
 // ================================================================
@@ -252,7 +270,7 @@ void uiSensorenUpdate(bool force) {
             snprintf(buf, sizeof(buf), "%dh %dm",
                      sensorData.ttg / 60, sensorData.ttg % 60);
             lv_label_set_text(s_ttg, buf);
-        }
+        }        
 
         snprintf(buf, sizeof(buf), "%.2f V", sensorData.voltage_starter);
         lv_label_set_text(s_vs, buf);
@@ -304,7 +322,20 @@ void uiSensorenUpdate(bool force) {
     {
         lv_label_set_text(s_co2, "---");
         lv_obj_set_style_bg_color(s_co2_ind, COLOR_INACTIVE, 0);
-    }       
+    }
+
+    // ---- Gas ----------------------------------------------------
+    if (sensorData.gas_valid)
+    {
+        snprintf(buf, sizeof(buf), "%d %%", sensorData.gas_percent);
+        lv_label_set_text(s_gas, buf);
+        lv_obj_set_style_bg_color(s_gas_ind, gasColor(sensorData.gas_percent), 0);
+    }
+    else
+    {
+        lv_label_set_text(s_gas, "---");
+        lv_obj_set_style_bg_color(s_gas_ind, COLOR_INACTIVE, 0);
+    }
 }
 
 // ----------------------------------------------------------------
