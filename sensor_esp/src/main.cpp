@@ -133,6 +133,23 @@ void handleReboot(AsyncWebServerRequest *req)
                 "reboot", 1024, nullptr, 1, nullptr);
 }
 
+void handleGasConfigPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, size_t, size_t)
+{
+    JsonDocument doc;
+    if (deserializeJson(doc, data, len))
+    {
+        req->send(400, "application/json", "{\"error\":\"JSON ungueltig\"}");
+        return;
+    }
+    if (doc["gas_raw_min"].is<int>()) sensorConfig.gas_raw_min = doc["gas_raw_min"];
+    if (doc["gas_raw_max"].is<int>()) sensorConfig.gas_raw_max = doc["gas_raw_max"];
+    if (doc["gas_enabled"].is<bool>()) sensorConfig.gas_enabled = doc["gas_enabled"].as<bool>();
+    
+    sensorConfigSave();
+    req->send(200, "application/json", "{\"ok\":true}");
+    // kein Neustart!
+}
+
 void addRoutes()
 {
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -141,7 +158,11 @@ void addRoutes()
     });
 
     //api
-    
+
+    //Gaskonfiguration / kalibrierung speichern
+    server.on("/api/config/gas", HTTP_POST,
+        [](AsyncWebServerRequest *req) {}, nullptr, handleGasConfigPost);
+
     // BLE Konfiguration lesen
     server.on("/api/config/ble", HTTP_GET, [](AsyncWebServerRequest *req)
         { req->send(200, "application/json", bleConfigToJson()); });

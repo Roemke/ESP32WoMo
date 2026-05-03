@@ -55,3 +55,8 @@
 #define BLE_MPPT2_BINDKEY_DEFAULT ""
 #define BLE_CHARGER_MAC_DEFAULT      ""
 #define BLE_CHARGER_BINDKEY_DEFAULT  ""
+
+//standards für gaskalibrierung
+#define GAS_RAW_MIN_DEFAULT  0
+#define GAS_RAW_MAX_DEFAULT  490
+#define GAS_ENABLED_DEFAULT  true

@@ -75,8 +75,8 @@ void uiChargerSetup(lv_obj_t *tab)
     const int pw         = 256;
     const int ph         = 392;
     const int gap        = 8;
-    const int row_start  = 34;
-    const int row_step   = 62;
+    const int row_start  = 44;
+    const int row_step   = 58;
 
     // ---- Charger (links) ----
     lv_obj_t *p_ch = makePanel(tab, gap, 4, pw, ph);

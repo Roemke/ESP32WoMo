@@ -223,7 +223,7 @@ void uiSensorenSetup(lv_obj_t *tab)
 
     lv_obj_t *imgRight = lv_image_create(p_bat);
     lv_image_set_src(imgRight, &tardisSmall);
-    lv_obj_set_pos(imgRight, 150, 100);
+    lv_obj_set_pos(imgRight, 150, 160);
     lv_obj_move_to_index(imgRight, 0);
 
     s_volt    = makeRow(p_bat, "Spannung:",  row_start);

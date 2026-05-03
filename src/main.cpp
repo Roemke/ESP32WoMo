@@ -529,10 +529,10 @@ void setup() {
     lv_display_set_rotation(display, LV_DISPLAY_ROTATION_0);
     
     uiMainSetup();
-    Serial.printf("Heap nach uimain: %lu\n", ESP.getFreeHeap());
+    logPrintf("Heap nach uimain: %lu\n", ESP.getFreeHeap());
 
     sdFillRingBuffer(RING_MAX_ENTRIES/1800); //ringbuffer füllen, falls aktuelle zeiten da. 
-    Serial.printf("Heap nach ringbuffer: %lu\n", ESP.getFreeHeap());
+    logPrintf("Heap nach ringbuffer: %lu\n", ESP.getFreeHeap());
     logPrintf("PSRAM: %lu bytes\n", (unsigned long)ESP.getPsramSize());
     logPrintln("Setup ist durch");    
 }
@@ -548,13 +548,15 @@ void loop() {
         ESP_LOGI("NTP", "sync nachträglich");
         // sdFillRingBuffer nochmal aufrufen falls vorher kein Sync
     }
-    if (millis() - lastHeapLog > 30000) // alle 30 Sekunden
+    if (millis() - lastHeapLog > 10000) // alle 10 Sekunden
     {
         lastHeapLog = millis();
         logPrintf("Heap: %lu frei, min: %lu | PSRAM: %lu frei\n",
             (unsigned long)ESP.getFreeHeap(),
             (unsigned long)ESP.getMinFreeHeap(),
             (unsigned long)ESP.getFreePsram());
+        logPrintf("PSRAM: %lu bytes\n", (unsigned long)ESP.getPsramSize());
+    
     }
     
     lv_tick_inc(now - lv_last_tick);

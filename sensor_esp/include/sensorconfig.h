@@ -14,6 +14,9 @@ struct SensorConfig
     int     bme_scl;
     uint8_t bme_addr;
     int     bme_interval_ms;    
+    int     gas_raw_min; //um gaskalibrierung einfacher zu machen
+    int     gas_raw_max;
+    bool    gas_enabled;
 };
 
 extern SensorConfig sensorConfig;

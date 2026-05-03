@@ -171,8 +171,9 @@ async function poll() {
     if (d.gas && d.gas.valid) {
       setBadge('gasPercent', d.gas.percent + ' %%', gasClass(d.gas.percent));
     } else {
-    setBadge('gasPercent', 'invalid Gas', 'err');
-}  
+      setBadge('gasPercent', 'kein Sensor', 'err');
+    }  
+    if (d.gas) setText('valGasRaw', d.gas.raw ?? '---');  
 
   } catch(e) {
       setText('statusUpdate', 'Fehler');
@@ -207,6 +208,24 @@ async function loadConfig() {
     setVal('cfg-bme-scl',      d.bme_scl);
     setVal('cfg-bme-addr',     d.bme_addr);
     setVal('cfg-bme-interval', d.bme_interval_ms);
+    setVal('cfg-gas-min', d.gas_raw_min);
+    setVal('cfg-gas-max', d.gas_raw_max);
+    document.getElementById('cfg-gas-enabled').checked = d.gas_enabled;
+  } catch(e) {}
+}
+
+async function saveGasConfig() {
+  const body = {
+    gas_raw_min: parseInt(getVal('cfg-gas-min')),
+    gas_raw_max: parseInt(getVal('cfg-gas-max')),
+    gas_enabled: document.getElementById('cfg-gas-enabled').checked
+  };
+  try {
+    await fetch('/api/config/gas', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    document.getElementById('gasConfigInfo').classList.remove('invisible');
   } catch(e) {}
 }
 
@@ -466,6 +485,21 @@ window.addEventListener('load', () => {
     <button class="btn" onclick="saveBle()">BLE Speichern &amp; Neustart</button>
     <div class="infoField invisible" id="bleInfo">
       <strong>BLE Konfiguration gespeichert.</strong> Der ESP startet neu.
+    </div>
+    <h2>Gas Kalibrierung</h2>
+    <div class="form-row">
+      <label>Gas aktiviert</label>
+      <input type="checkbox" id="cfg-gas-enabled">
+    </div>
+    <div class="form-row"><label>Raw Min (leer)</label>  <input type="number" id="cfg-gas-min" value="0"></div>
+    <div class="form-row"><label>Raw Max (voll)</label>  <input type="number" id="cfg-gas-max" value="490"></div>
+    <div class="form-row">
+      <label>Aktueller Raw-Wert:</label>
+      <span class="badge neutral" id="valGasRaw">---</span>
+    </div>
+    <button class="btn" onclick="saveGasConfig()">Gas Speichern (Neustart unnötig)</button>
+    <div class="infoField invisible" id="gasConfigInfo">
+      <strong>Gas-Kalibrierung gespeichert.</strong>
     </div>
 
     <h2>WLAN Konfiguration</h2>
