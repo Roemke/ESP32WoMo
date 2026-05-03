@@ -1,7 +1,7 @@
 # ESP32 WoMo Monitor
 
-A dual-ESP32 monitoring and control system for a motorhome / camper (Wohnmobil), providing real-time sensor data, battery monitoring, solar charge controller tracking, and lighting control via a touchscreen display and web interface.
-Collected data are written ervery 60s to a SD-Card (Display ESP provides a slot for cards up to 32 GB - as far as I remember) 
+A dual-ESP32 monitoring and control system for a motorhome / camper (Wohnmobil), providing real-time sensor data, battery monitoring, solar charge controller tracking, gas level monitoring, and lighting control via a touchscreen display and web interface.
+Collected data are written every 60s to a SD-Card (Display ESP provides a slot for cards up to 32 GB - as far as I remember) 
 
 ## Status ##
 It is an experimental project to replace the old raspberry with LCD (10
@@ -21,7 +21,7 @@ The project uses two separate ESP32-S3 boards by design:
 
 - **Display ESP32** (`ESP32WoMo`): Drives the 800×480 RGB touchscreen display using the `esp32_smartdisplay` framework. This board's display interface consumes significant resources and shares the I2C bus in a way that made running BLE and I2C sensors simultaneously unreliable. Bluetooth was intentionally excluded from this board to keep the display stable and responsive.
 
-- **Sensor ESP32** (`sensor_esp`): Handles all BLE communication with Victron devices (BMV712, MPPT solar chargers, Blue Smart IP22 charger) as well as I2C sensors (BME280 for temperature/humidity/pressure). It exposes all data via a simple JSON HTTP API that the display ESP polls regularly.
+- **Sensor ESP32** (`sensor_esp`): Handles all BLE communication with Victron devices (BMV712, MPPT solar chargers, Blue Smart IP22 charger) as well as I2C sensors (BME280 for temperature/humidity/pressure). It also reads the LPG gas tank level via ADC and exposes all data via a simple JSON HTTP API that the display ESP polls regularly.
 
 This separation keeps responsibilities clean, avoids BLE/WiFi/display resource conflicts, and makes the system more robust.
 Both systems are developed using platformio and claude for less typing and documentation reading. Both systems can be updated via OTA.
@@ -41,19 +41,28 @@ Both systems are developed using platformio and claude for less typing and docum
 - **Victron BMV712**: Battery monitor via BLE
 - **Victron MPPT (×2)**: Solar charge controllers via BLE
 - **Victron Blue Smart IP22**: Battery charger via BLE
+- **Gas tank level sensor**: LPG fill level via ADC (GPIO4) connected to a Truma Livello AGC display unit
+
+### Gas Level Measurement
+The gas tank level is read via a resistive sensor built into the LPG tank's multiventil. The Truma Livello AGC display unit applies ~5V to the green signal wire; the sensor pulls it toward GND with a resistance of 0–~60 Ohm depending on fill level.
+
+A voltage divider (9.83kΩ / 17.85kΩ) scales the signal to 0–3.3V for the ESP32 ADC on GPIO4. The raw ADC value is mapped to 0–100% using configurable min/max calibration values stored in NVS, adjustable via the web interface without recompilation.
+
+The Livello display continues to work in parallel — the voltage divider is high-impedance enough (≈28kΩ) to not affect the Livello's measurement.
 
 ### Other ###
-- WLED: LED lighting control (Innen/Außen) via WiFi/JSON API, two seperateesp8266 / esp32 running wled
+- WLED: LED lighting control (Innen/Außen) via WiFi/JSON API, two separate esp8266 / esp32 running wled
 - some led stripes
 - voltage regulators to have stable 5V from Womo Lithium battery
-- any kind of internet-acces for the ESP32-S3 Display, I've mounted a 4g router in the camper
+- any kind of internet-access for the ESP32-S3 Display, I've mounted a 4g router in the camper
 
 ## Features
 
 ### Web Interface (of Display-ESP)
-- **Status Tab**: Live sensor badges with color-coded warnings
+- **Status Tab**: Live sensor badges with color-coded warnings, including gas fill level
 - **Klima-Verlauf**: Climate history charts from SD card
 - **Batterie-Verlauf**: Battery history charts from SD card
+- **Gas-Verlauf**: Gas fill level history chart from SD card
 - **Solar & Charger**: Solar and charger history charts (MPPT1, MPPT2, IP22)
 - **Beleuchtung**: Embedded WLED web interfaces (Innen/Außen) via iframe
 - **Konfiguration**: IP addresses, WiFi settings, poll interval
@@ -76,15 +85,15 @@ Help/Log
 ![Web Help/Log](screenshots/web_help.png)
 
 ### Display (LVGL 9)
-- **Sensoren Tab**: Live climate and battery data with background images
+- **Sensoren Tab**: Live climate and battery data with background images, gas fill level panel
 - **Charger Tab**: Solar MPPT1, MPPT2 and IP22 charger data
-- **Details Tab**: Statistics table (min/max/avg) for all sensors over selectable time periods
+- **Details Tab**: Statistics table (min/max/avg) for all sensors over selectable time periods, including gas
 - **Beleuchtung Tab**: WLED lighting control with RGB sliders, color presets, brightness and power per zone
 - Tab navigation via touch buttons (swipe disabled on lighting tab)
 
 ### Some screenshots of the Display ###
 This screenshots are done with my smartphone. No light (reflections) so the
-quality isn't good, but I was to lazy to implemnent an endpoint for taking
+quality isn't good, but I was to lazy to implement an endpoint for taking
 screenshots. 
 
 Haupt-Tab, Klima und BMV
@@ -105,16 +114,16 @@ Beleuchtung mit Steuerung
 All sensor data is written to the SD card every 60 seconds in CSV format:
 
 ```
-Datum,Zeit,V,I,VS,SOC,TTG_min,P_W,T_C,H_pct,P_hPa,CO2_ppm,MPPT1_V,MPPT1_I,MPPT1_PV,MPPT2_V,MPPT2_I,MPPT2_PV,Charger_V,Charger_I,valid_flags
+Datum,Zeit,V,I,VS,SOC,TTG_min,P_W,T_C,H_pct,P_hPa,CO2_ppm,MPPT1_V,MPPT1_I,MPPT1_PV,MPPT2_V,MPPT2_I,MPPT2_PV,Charger_V,Charger_I,Gas_pct,valid_flags
 ```
 
-The `valid_flags` bitmask records which sensors were active at the time of writing, enabling accurate historical statistics even when sensors are occasionally unavailable (e.g. solar at night).
+The `valid_flags` bitmask records which sensors were active at the time of writing, enabling accurate historical statistics even when sensors are occasionally unavailable (e.g. solar at night, gas sensor disabled).
 
-Old CSV files (12 fields, without MPPT/Charger/valid_flags) are still supported for reading.
+Old CSV files (21 fields, without Gas_pct) and very old files (12 fields, without MPPT/Charger/valid_flags) are still supported for reading.
 
 ## Ring Buffer
 
-The display ESP maintains a ring buffer (in PSRAM)  of recent measurements for live statistics. Buffer capacity depends on the configured poll interval:
+The display ESP maintains a ring buffer (in PSRAM) of recent measurements for live statistics. Buffer capacity depends on the configured poll interval:
 
 ```
 capacity (hours) = RING_MAX_ENTRIES × poll_interval_ms / 3600000
@@ -126,6 +135,8 @@ At the default 2000ms poll interval and 75600 entries (fixed), this gives approx
 
 Most settings are configurable and persistent via Preferences / NVS:
 
+### Display ESP (ESP32WoMo)
+
 | Setting | Default | Description |
 |---|---|---|
 | `sensor_esp_ip` | `192.168.42.3` | IP of the sensor ESP |
@@ -133,7 +144,17 @@ Most settings are configurable and persistent via Preferences / NVS:
 | `wled_aussen_ip` | `192.168.42.7` | IP of outdoor WLED |
 | `sensor_poll_interval_ms` | `2000` | How often to fetch sensor data (min 2000ms recommended) |
 
-WiFi supports static IP with configurable gateway and DNS (not at sensor_esp, that one need no internet-access)
+### Sensor ESP (sensor_esp)
+
+| Setting | Default | Description |
+|---|---|---|
+| `gas_enabled` | `true` | Enable/disable gas level reading |
+| `gas_raw_min` | `0` | ADC raw value at empty tank (calibration) |
+| `gas_raw_max` | `490` | ADC raw value at full tank (calibration) |
+
+Gas calibration is adjustable via the sensor ESP web interface without recompilation or restart.
+
+WiFi supports static IP with configurable gateway and DNS (not at sensor_esp, that one needs no internet-access)
 
 ## Project Structure
 
@@ -141,6 +162,7 @@ WiFi supports static IP with configurable gateway and DNS (not at sensor_esp, th
 ESP32WoMo/          ← Display ESP project (PlatformIO)
 ├── src/
 │   ├── main.cpp
+│   ├── main-s2.cpp     ← S2 Mini variant (no display, web only)
 │   ├── ui_main.cpp
 │   ├── ui_sensoren.cpp
 │   ├── ui_charger.cpp
@@ -155,13 +177,19 @@ ESP32WoMo/          ← Display ESP project (PlatformIO)
 │   ├── sensorpoll.h
 │   └── ...
 ├── earthSmall.c        ← LVGL image (ARGB8888)
-└── tardisSmall.c       ← LVGL image (ARGB8888)
+├── tardisSmall.c       ← LVGL image (ARGB8888)
+└── GasTankIcon.c       ← LVGL image (ARGB8888), gas panel icon
 
 sensor_esp/         ← Sensor ESP project (PlatformIO)
 ├── src/
 │   ├── main.cpp
+│   ├── gas.cpp         ← Gas level ADC reading and JSON output
 │   ├── victronble.cpp
 │   ├── wifi.cpp
+│   └── ...
+├── include/
+│   ├── gas.h
+│   ├── sensorconfig.h  ← includes gas calibration settings
 │   └── ...
 └── lib/
     └── victronble/     ← Victron BLE library (modified)
